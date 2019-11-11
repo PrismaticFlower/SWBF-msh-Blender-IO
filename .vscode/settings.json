@@ -1,0 +1,9 @@
+{
+    "python.autoComplete.extraPaths": [
+        "C:/GitHub/blender_autocomplete/2.80"
+    ],
+    "python.linting.pylintArgs": [
+        "--init-hook",
+        "import sys; sys.path.append('C:/GitHub/blender_autocomplete/2.80')"
+    ],
+}
