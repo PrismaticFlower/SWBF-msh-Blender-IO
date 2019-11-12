@@ -7,7 +7,7 @@ Currently capable of exporting the active scene without any materials or skinnin
 
 #### For UV layers and vertex colors layers it is the active layer that is exported.
 Unlikely to come up since if you're working on a model for SWBF you're unlikely to have multiple layers to start 
-with but 
+with but incase you do, there you go.
 
 #### If a scene has multiple "roots" they will be reparented to a new "root" added during export.
 This is to make sure the .msh file only has one root in it. Any object that doesn't have a parent is considered a root.
@@ -31,7 +31,7 @@ possible that more object types should be added.
 - Light Probes
 - Speakers
 
-If an object has children it is always exported as an empty.
+If an object with one of the above types has children it is always exported as an empty.
 
 #### Objects whose name starts with "sv_", "p_" or "collision" will be marked as hidden in the .msh file.
 This should be consistent with other .msh exporters. As far as I know the only special thing about collision meshes or
