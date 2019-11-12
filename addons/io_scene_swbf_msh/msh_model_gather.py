@@ -27,8 +27,7 @@ def gather_models() -> List[Model]:
         model.name = obj.name
         model.model_type = get_model_type(obj)
         model.hidden = get_is_model_hidden(obj)
-        model.transform.rotation = obj.rotation_quaternion.copy()
-        model.transform.rotation.rotate(obj.delta_rotation_quaternion)
+        model.transform.rotation = obj.rotation_quaternion @ obj.delta_rotation_quaternion
         model.transform.translation = add_vec(obj.location, obj.delta_location)
 
         if obj.parent is not None:
