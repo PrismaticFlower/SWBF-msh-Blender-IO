@@ -15,13 +15,16 @@ def gather_models() -> List[Model]:
     """ Gathers the Blender objects from the current scene and returns them as a list of
         Model objects. """
 
+    depsgraph = bpy.context.evaluated_depsgraph_get()
     parents = create_parents_set()
 
     models_list: List[Model] = []
 
-    for obj in bpy.context.scene.objects:
-        if obj.type in SKIPPED_OBJECT_TYPES and obj.name not in parents:
+    for uneval_obj in bpy.context.scene.objects:
+        if uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents:
             continue
+
+        obj = uneval_obj.evaluated_get(depsgraph)
 
         model = Model()
         model.name = obj.name
