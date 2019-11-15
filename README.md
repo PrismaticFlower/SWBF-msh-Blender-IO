@@ -1,9 +1,12 @@
 # SWBF-msh-Blender-Export
 WIP .msh (SWBF toolchain version) exporter for Blender 2.8
 
-Currently capable of exporting the active scene without any materials or skinning information. 
+Currently capable of exporting the active scene without collision primitives or skinning information. 
 
 ### Behaviour to be aware of
+
+#### A UI panel named "SWBF .msh Properties" is added under the Material context.
+Unsurprisingly Blender's modern and sophisticated materials don't map down well/easilly to what .msh files support. Thus seperate properties are provided for all .msh material properties.
 
 #### For UV layers and vertex colors layers it is the active layer that is exported.
 Unlikely to come up since if you're working on a model for SWBF you're unlikely to have multiple layers to start 
@@ -53,10 +56,16 @@ The triangle strips are generated using a brute-force method that seams to give 
 Unsurprisingly Blender's delta transforms have no meaningful representation in .msh files. 
 So they are combined with the regular transform during export.
 
+#### If a scene has no materials a default one will be added to the resulting .msh file.
+Can't imagine this coming up much (Maybe if you're model is just for collisions or shadows?) but that's how it works.
+
+#### Meshes without any materials will be assigned the first material in the .msh file.
+This shouldn't be relevant as any mesh that you haven't assigned a material to is likely to just be collision geometry or shadow geometry.
+
 ### Work to be done
 - [ ] Raise an error when a .msh segment has more than 32767 vertices.
-- [ ] Convert from Blender's coordinate space to .msh cooordinate space.
-- [ ] Add support for exporting materials. Blender's materials are all based around it's own renderers, so possibly going to need custom UI and properties in order to provide something useful for .msh files.
+- [x] Convert from Blender's coordinate space to .msh cooordinate space.
+- [x] Add support for exporting materials. Blender's materials are all based around it's own renderers, so possibly going to need custom UI and properties in order to provide something useful for .msh files.
 - [ ] Add support for collision primitives. Blender doesn't seam to support having basic boxes, cylinders or spheres so it's likely some wacky rules and conventions will need to be used by the modeler. "Add a 1m mesh primitive, have "sphere/box/cylinder" in the name and control the size with the object's scale." Less intuitive than I'd like but it might be the best course of action.
 - [ ] Investigate and add support for exporting bones and vertex weights.
 - [ ] Investigate and add support for exporting animations.
