@@ -2,6 +2,7 @@
     Model objects. """
 
 import bpy
+import math
 from typing import List, Set, Dict, Tuple
 from itertools import zip_longest
 from .msh_model import *
@@ -43,6 +44,9 @@ def gather_models() -> List[Model]:
 
             mesh_scale = convert_vector_space(get_object_worldspace_scale(obj))
             scale_segments(mesh_scale, model.geometry)
+
+        if get_is_collision_primitive(obj):
+            model.collisionprimitive = get_collision_primitive(obj)
 
         models_list.append(model)
 
@@ -162,6 +166,56 @@ def get_is_model_hidden(obj: bpy.types.Object) -> bool:
         return True
 
     return False
+
+def get_is_collision_primitive(obj: bpy.types.Object) -> bool:
+    """ Gets if a Blender object represents a collision primitive. """
+
+    name = obj.name.lower()
+
+    return name.startswith("p_")
+
+def get_collision_primitive(obj: bpy.types.Object) -> CollisionPrimitive:
+    """ Gets the CollisionPrimitive of an object or raises an error if
+        it can't. """
+
+    primitive = CollisionPrimitive()
+    primitive.shape = get_collision_primitive_shape(obj)
+
+    if primitive.shape == CollisionPrimitiveShape.SPHERE:
+        # Tolerate a 5% difference to account for icospheres with 2 subdivisions.
+        if not (math.isclose(obj.dimensions[0], obj.dimensions[1], rel_tol=0.05) and
+                math.isclose(obj.dimensions[0], obj.dimensions[2], rel_tol=0.05)):
+            raise RuntimeError(f"Object '{obj.name}' is being used as a sphere collision "
+                               f"primitive but it's dimensions are not uniform!")
+
+        primitive.radius = max(obj.dimensions[0], obj.dimensions[1], obj.dimensions[2]) * 0.5
+    elif primitive.shape == CollisionPrimitiveShape.CYLINDER:
+        if not math.isclose(obj.dimensions[0], obj.dimensions[1], rel_tol=0.001):
+            raise RuntimeError(f"Object '{obj.name}' is being used as a cylinder collision "
+                               f"primitive but it's X and Y dimensions are not uniform!")
+        primitive.radius = obj.dimensions[0] * 0.5
+        primitive.height = obj.dimensions[2] * 0.5
+    elif primitive.shape == CollisionPrimitiveShape.BOX:
+        primitive.radius = obj.dimensions[0] * 0.5
+        primitive.height = obj.dimensions[2] * 0.5
+        primitive.length = obj.dimensions[1] * 0.5
+
+    return primitive
+
+def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveShape:
+    """ Gets the CollisionPrimitiveShape of an object or raises an error if
+        it can't. """
+
+    name = obj.name.lower()
+
+    if "sphere" in name or "sphr" in name or "spr" in name:
+        return CollisionPrimitiveShape.SPHERE
+    if "cylinder" in name or "cyln" in name or "cyl" in name:
+        return CollisionPrimitiveShape.CYLINDER
+    if "box" in name:
+        return CollisionPrimitiveShape.BOX
+
+    raise RuntimeError(f"Object '{obj.name}' has no primitive type specified in it's name!")
 
 def convert_vector_space(vec: Vector) -> Vector:
     return Vector(vec.xzy)

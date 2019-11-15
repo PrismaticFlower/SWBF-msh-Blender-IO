@@ -18,7 +18,7 @@ class CollisionPrimitiveShape(Enum):
     # ELLIPSOID = 1
     CYLINDER = 2
     # MESH = 3
-    CUBE = 4
+    BOX = 4
 
 @dataclass
 class ModelTransform:
@@ -47,10 +47,10 @@ class GeometrySegment:
 class CollisionPrimitive:
     """ Class representing a 'SWCI' section in a .msh file. """
 
-    collision_primitive_shape: CollisionPrimitiveShape
-    radius: float
-    height: float
-    length: float
+    shape: CollisionPrimitiveShape = CollisionPrimitiveShape.SPHERE
+    radius: float = 0.0
+    height: float = 0.0
+    length: float = 0.0
 
 @dataclass
 class Model:

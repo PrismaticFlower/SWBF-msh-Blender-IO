@@ -124,7 +124,12 @@ def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str
                 with geom.create_child("SEGM") as segm:
                     _write_segm(segm, segment, material_index)
 
-    # TODO: Collision Primitive
+    if model.collisionprimitive is not None:
+        with modl.create_child("SWCI") as swci:
+            swci.write_u32(model.collisionprimitive.shape.value)
+            swci.write_f32(model.collisionprimitive.radius)
+            swci.write_f32(model.collisionprimitive.height)
+            swci.write_f32(model.collisionprimitive.length)
 
 def _write_tran(tran: Writer, transform: ModelTransform):
     tran.write_f32(1.0, 1.0, 1.0) # Scale, ignored by modelmunge
