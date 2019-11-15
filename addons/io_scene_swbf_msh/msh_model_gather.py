@@ -30,8 +30,8 @@ def gather_models() -> List[Model]:
         model.name = obj.name
         model.model_type = get_model_type(obj)
         model.hidden = get_is_model_hidden(obj)
-        model.transform.rotation = obj.rotation_quaternion @ obj.delta_rotation_quaternion
-        model.transform.translation = add_vec(obj.location, obj.delta_location)
+        model.transform.rotation = convert_rotation_space(obj.rotation_quaternion @ obj.delta_rotation_quaternion)
+        model.transform.translation = convert_vector_space(add_vec(obj.location, obj.delta_location))
 
         if obj.parent is not None:
             model.parent = obj.parent.name
@@ -41,7 +41,7 @@ def gather_models() -> List[Model]:
             model.geometry = create_mesh_geometry(mesh)
             obj.to_mesh_clear()
 
-            mesh_scale = get_object_worldspace_scale(obj)
+            mesh_scale = convert_vector_space(get_object_worldspace_scale(obj))
             scale_segments(mesh_scale, model.geometry)
 
         models_list.append(model)
@@ -95,12 +95,12 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
         new_index: int = len(segment.positions)
         remap[(vertex_index, loop_index)] = new_index
 
-        segment.positions.append(mesh.vertices[vertex_index].co.copy())
+        segment.positions.append(convert_vector_space(mesh.vertices[vertex_index].co))
 
         if mesh.has_custom_normals:
-            segment.normals.append(mesh.loops[loop_index].normal.copy())
+            segment.normals.append(convert_vector_space(mesh.loops[loop_index].normal))
         else:
-            segment.normals.append(mesh.vertices[vertex_index].normal.copy())
+            segment.normals.append(convert_vector_space(mesh.vertices[vertex_index].normal))
 
         if mesh.uv_layers.active is None:
             segment.texcoords.append(Vector((0.0, 0.0)))
@@ -114,8 +114,10 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
 
     for tri in mesh.loop_triangles:
         polygons[tri.material_index].add(tri.polygon_index)
-        segments[tri.material_index].triangles.append(
-            [add_vertex(tri.material_index, v, l) for v, l in zip(tri.vertices, tri.loops)])
+        segments[tri.material_index].triangles.append([
+            add_vertex(tri.material_index, tri.vertices[0], tri.loops[0]),
+            add_vertex(tri.material_index, tri.vertices[2], tri.loops[2]),
+            add_vertex(tri.material_index, tri.vertices[1], tri.loops[1])])
 
     for segment, remap, polys in zip(segments, vertex_remap, polygons):
         for poly_index in polys:
@@ -160,3 +162,12 @@ def get_is_model_hidden(obj: bpy.types.Object) -> bool:
         return True
 
     return False
+
+def convert_vector_space(vec: Vector) -> Vector:
+    return Vector(vec.xzy)
+
+def convert_scale_space(vec: Vector) -> Vector:
+    return Vector(vec.xzy)
+
+def convert_rotation_space(quat: Quaternion) -> Quaternion:
+    return Quaternion((quat.w, quat.x, quat.z, quat.y))
