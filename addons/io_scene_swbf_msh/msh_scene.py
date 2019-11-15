@@ -2,7 +2,7 @@
     from a Blender scene.  """
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Dict
 from copy import copy
 import bpy
 from mathutils import Vector
@@ -10,6 +10,9 @@ from .msh_model import Model
 from .msh_model_gather import gather_models
 from .msh_model_utilities import sort_by_parent, has_multiple_root_models, reparent_model_roots, get_model_world_matrix
 from .msh_model_triangle_strips import create_models_triangle_strips
+from .msh_material import *
+from .msh_material_gather import gather_materials
+from .msh_material_utilities import remove_unused_materials
 from .msh_utilities import *
 
 @dataclass
@@ -38,6 +41,7 @@ class SceneAABB:
 class Scene:
     """ Class containing the scene data for a .msh """
     name: str = "Scene"
+    materials: Dict[str, Material] = field(default_factory=dict)
     models: List[Model] = field(default_factory=list)
 
 def create_scene() -> Scene:
@@ -47,12 +51,16 @@ def create_scene() -> Scene:
 
     scene.name = bpy.context.scene.name
 
+    scene.materials = gather_materials()
+
     scene.models = gather_models()
     scene.models = sort_by_parent(scene.models)
     scene.models = create_models_triangle_strips(scene.models)
 
     if has_multiple_root_models(scene.models):
         scene.models = reparent_model_roots(scene.models)
+
+    scene.materials = remove_unused_materials(scene.materials, scene.models)
 
     return scene
 

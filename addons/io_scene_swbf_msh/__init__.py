@@ -54,17 +54,11 @@ if "bpy" in locals():
 
 import bpy
 from bpy_extras.io_utils import ExportHelper
-from bpy.props import StringProperty, BoolProperty, EnumProperty
+from bpy.props import BoolProperty, EnumProperty
 from bpy.types import Operator
 from .msh_scene import create_scene
 from .msh_scene_save import save_scene
-
-def write_some_data(context, filepath, use_some_setting):
-    with open(filepath, 'wb') as output_file:
-        save_scene(output_file, create_scene())
-
-    return {'FINISHED'}
-
+from .msh_material_properties import *
 
 # ExportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
@@ -101,23 +95,29 @@ class ExportSomeData(Operator, ExportHelper):
     )
 
     def execute(self, context):
-        return write_some_data(context, self.filepath, self.use_setting)
+        with open(self.filepath, 'wb') as output_file:
+            save_scene(output_file, create_scene())
 
+        return {'FINISHED'}
 
 # Only needed if you want to add into a dynamic menu
 def menu_func_export(self, context):
     self.layout.operator(ExportSomeData.bl_idname, text="SWBF msh (.msh)")
 
-
 def register():
+    bpy.utils.register_class(MaterialProperties)
+    bpy.utils.register_class(MaterialPropertiesPanel)
     bpy.utils.register_class(ExportSomeData)
+
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
+    bpy.types.Material.swbf_msh = bpy.props.PointerProperty(type=MaterialProperties)
 
 
 def unregister():
+    bpy.utils.unregister_class(MaterialProperties)
+    bpy.utils.unregister_class(MaterialPropertiesPanel)
     bpy.utils.unregister_class(ExportSomeData)
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
-
 
 if __name__ == "__main__":
     register()

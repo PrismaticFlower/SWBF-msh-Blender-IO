@@ -1,8 +1,10 @@
 """ Contains functions for saving a Scene to a .msh file.  """
 
 from itertools import islice
+from typing import Dict
 from .msh_scene import Scene, create_scene_aabb
 from .msh_model import *
+from .msh_material import *
 from .msh_writer import Writer
 from .msh_utilities import *
 
@@ -15,12 +17,14 @@ def save_scene(output_file, scene: Scene):
             with msh2.create_child("SINF") as sinf:
                 _write_sinf(sinf, scene)
 
+            material_index: Dict[str, int] = {}
+
             with msh2.create_child("MATL") as matl:
-                _write_matl(matl, scene)
+                material_index = _write_matl_and_get_material_index(matl, scene)
 
             for index, model in enumerate(scene.models):
                 with msh2.create_child("MODL") as modl:
-                    _write_modl(modl, model, index)
+                    _write_modl(modl, model, index, material_index)
 
         with hedr.create_child("CL1L"):
             pass
@@ -44,30 +48,56 @@ def _write_sinf(sinf: Writer, scene: Scene):
         bbox.write_f32(bbox_position.x, bbox_position.y, bbox_position.z)
         bbox.write_f32(bbox_size.x, bbox_size.y, bbox_size.z, bbox_length)
 
-def _write_matl(matl: Writer, scene: Scene):
-    # TODO: Material support.
+def _write_matl_and_get_material_index(matl: Writer, scene: Scene):
+    material_index: Dict[str, int] = {}
 
-    matl.write_u32(1) # Material count.
+    if len(scene.materials) > 0:
+        matl.write_u32(len(scene.materials)) # Material count.
 
-    with matl.create_child("MATD") as matd:
-        with matd.create_child("NAME") as name:
-            name.write_string(f"{scene.name}Material") # TODO: Proper name with material support.
+        for index, name_material in enumerate(scene.materials.items()):
+            with matl.create_child("MATD") as matd:
+                material_index[name_material[0]] = index
+                _write_matd(matd, name_material[0], name_material[1])
+    else:
+        matl.write_u32(1) # Material count.
 
-        with matd.create_child("DATA") as data:
-            data.write_f32(1.0, 1.0, 1.0, 1.0) # Diffuse Color (Seams to get ignored by modelmunge)
-            data.write_f32(1.0, 1.0, 1.0, 1.0) # Specular Color
-            data.write_f32(0.0, 0.0, 0.0, 1.0) # Ambient Color (Seams to get ignored by modelmunge and Zero(?))
-            data.write_f32(50.0) # Specular Exponent/Decay (Gets ignored by RedEngine in SWBFII for all known materials)
+        default_material_name = f"{scene.name}Material"
+        material_index[default_material_name] = 0
 
-        with matd.create_child("ATRB") as atrb:
-            atrb.write_u8(0) # Material Flags
-            atrb.write_u8(0) # Rendertype
-            atrb.write_u8(0, 0) # Rendertype Params (Scroll rate, animation divisors, etc)
+        with matl.create_child("MATD") as matd:
+            _write_matd(matd, default_material_name, Material())
 
-        with matd.create_child("TX0D") as tx0d:
-            tx0d.write_string("null_detailmap.tga")
+    return material_index
 
-def _write_modl(modl: Writer, model: Model, index: int):
+def _write_matd(matd: Writer, material_name: str, material: Material):
+    with matd.create_child("NAME") as name:
+        name.write_string(material_name)
+    with matd.create_child("DATA") as data:
+        data.write_f32(1.0, 1.0, 1.0, 1.0) # Diffuse Color (Seams to get ignored by modelmunge)
+        data.write_f32(material.specular_color[0], material.specular_color[1],
+                       material.specular_color[2], 1.0)
+        data.write_f32(0.0, 0.0, 0.0, 1.0) # Ambient Color (Seams to get ignored by modelmunge and Zero(?))
+        data.write_f32(50.0) # Specular Exponent/Decay (Gets ignored by RedEngine in SWBFII for all known materials)    
+    with matd.create_child("ATRB") as atrb:
+        atrb.write_u8(material.flags.value)
+        atrb.write_u8(material.rendertype.value)
+        atrb.write_u8(material.data[0], material.data[1])
+
+    with matd.create_child("TX0D") as tx0d:
+        tx0d.write_string(material.texture0)
+    if material.texture1 or material.texture2 or material.texture3:
+        with matd.create_child("TX1D") as tx1d:
+            tx1d.write_string(material.texture1)
+
+        if material.texture2 or material.texture3:
+            with matd.create_child("TX2D") as tx2d:
+                tx2d.write_string(material.texture2)
+
+        if material.texture3:
+            with matd.create_child("TX3D") as tx3d:
+                tx3d.write_string(material.texture3)
+
+def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str, int]):
     with modl.create_child("MTYP") as mtyp:
         mtyp.write_u32(model.model_type.value)
 
@@ -92,7 +122,7 @@ def _write_modl(modl: Writer, model: Model, index: int):
         with modl.create_child("GEOM") as geom:
             for segment in model.geometry:
                 with geom.create_child("SEGM") as segm:
-                    _write_segm(segm, segment)
+                    _write_segm(segm, segment, material_index)
 
     # TODO: Collision Primitive
 
@@ -101,10 +131,10 @@ def _write_tran(tran: Writer, transform: ModelTransform):
     tran.write_f32(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w)
     tran.write_f32(transform.translation.x, transform.translation.y, transform.translation.z)
 
-def _write_segm(segm: Writer, segment: GeometrySegment):
+def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str, int]):
 
     with segm.create_child("MATI") as mati:
-        mati.write_u32(0)
+        mati.write_u32(material_index.get(segment.material_name, 0))
 
     with segm.create_child("POSL") as posl:
         posl.write_u32(len(segment.positions))
