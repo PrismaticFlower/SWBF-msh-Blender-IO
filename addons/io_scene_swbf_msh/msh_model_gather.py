@@ -2,7 +2,7 @@
     Model objects. """
 
 import bpy
-from typing import List, Set, Dict
+from typing import List, Set, Dict, Tuple
 from itertools import zip_longest
 from .msh_model import *
 from .msh_model_utilities import *
@@ -64,21 +64,17 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
     """ Creates a list of GeometrySegment objects from a Blender mesh.
         Does NOT create triangle strips in the GeometrySegment however. """
 
+    if mesh.has_custom_normals:
+        mesh.calc_normals_split()
+
     mesh.validate_material_indices()
     mesh.calc_loop_triangles()
 
-    if len(mesh.materials) != 0:
-        return create_mesh_geometry_with_materials(mesh)
+    material_count = max(len(mesh.materials), 1)
 
-    return [create_mesh_geometry_without_materials(mesh)]
-
-def create_mesh_geometry_with_materials(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
-    """ Creates a list of GeometrySegment objects from a Blender mesh
-        that references materials. """
-
-    segments: List[GeometrySegment] = [GeometrySegment() for i in range(len(mesh.materials))]
-    vertex_remap: List[Dict[int, int]] = [dict() for i in range(len(mesh.materials))]
-    polygons: List[Set[int]] = [set() for i in range(len(mesh.materials))]
+    segments: List[GeometrySegment] = [GeometrySegment() for i in range(material_count)]
+    vertex_remap: List[Dict[Tuple(int, int), int]] = [dict() for i in range(material_count)]
+    polygons: List[Set[int]] = [set() for i in range(material_count)]
 
     if mesh.vertex_colors.active is not None:
         for segment in segments:
@@ -87,68 +83,47 @@ def create_mesh_geometry_with_materials(mesh: bpy.types.Mesh) -> List[GeometrySe
     for segment, material in zip(segments, mesh.materials):
         segment.material_name = material.name
 
-    def add_vertex(material_index: int, index : int) -> int:
+    def add_vertex(material_index: int, vertex_index: int, loop_index: int) -> int:
         nonlocal segments, vertex_remap
 
         segment = segments[material_index]
         remap = vertex_remap[material_index]
 
-        if index in remap:
-            return remap[index]
+        if (vertex_index, loop_index) in remap:
+            return remap[(vertex_index, loop_index)]
 
         new_index: int = len(segment.positions)
-        remap[index] = new_index
+        remap[(vertex_index, loop_index)] = new_index
 
-        segment.positions.append(mesh.vertices[index].co.copy())
-        segment.normals.append(mesh.vertices[index].normal.copy())
+        segment.positions.append(mesh.vertices[vertex_index].co.copy())
+
+        if mesh.has_custom_normals:
+            segment.normals.append(mesh.loops[loop_index].normal.copy())
+        else:
+            segment.normals.append(mesh.vertices[vertex_index].normal.copy())
 
         if mesh.uv_layers.active is None:
             segment.texcoords.append(Vector((0.0, 0.0)))
         else:
-            segment.texcoords.append(mesh.uv_layers.active.data[index].uv.copy())
+            segment.texcoords.append(mesh.uv_layers.active.data[loop_index].uv.copy())
 
         if segment.colors is not None:
-            segment.colors.append([v for v in mesh.vertex_colors.active.data[index].color])
+            segment.colors.append([v for v in mesh.vertex_colors.active.data[loop_index].color])
 
         return new_index
 
     for tri in mesh.loop_triangles:
         polygons[tri.material_index].add(tri.polygon_index)
-        segments[tri.material_index].triangles.append([add_vertex(tri.material_index, i) for i in  tri.vertices])
+        segments[tri.material_index].triangles.append(
+            [add_vertex(tri.material_index, v, l) for v, l in zip(tri.vertices, tri.loops)])
 
     for segment, remap, polys in zip(segments, vertex_remap, polygons):
         for poly_index in polys:
             poly = mesh.polygons[poly_index]
 
-            segment.polygons.append([remap[i] for i in poly.vertices])
+            segment.polygons.append([remap[(v, l)] for v, l in zip(poly.vertices, poly.loop_indices)])
 
     return segments
-
-def create_mesh_geometry_without_materials(mesh: bpy.types.Mesh) -> GeometrySegment:
-    """ Creates a list of GeometrySegment objects from a Blender mesh
-        that doesn't references materials. """
-
-    segment = GeometrySegment()
-
-    for tri in mesh.loop_triangles:
-        segment.triangles.append([i for i in  tri.vertices])
-
-    for vertex in mesh.vertices:
-        segment.positions.append(vertex.co.copy())
-        segment.normals.append(vertex.normal.copy())
-
-    if mesh.uv_layers.active is None:
-        segment.texcoords = [Vector((0.0, 0.0))] * len(mesh.vertices)
-    else:
-        segment.texcoords = [texcoords.uv.copy() for texcoords in mesh.uv_layers.active.data]
-
-    if mesh.vertex_colors.active is not None:
-        segment.colors = [[v for v in color.color] for color in mesh.vertex_colors.active.data]
-
-    for polygon in mesh.polygons:
-        segment.polygons.append([v for v in polygon.vertices])
-
-    return segment
 
 def get_object_worldspace_scale(obj: bpy.types.Object) -> Vector:
     """ Get the worldspace scale transform for a Blender object. """
