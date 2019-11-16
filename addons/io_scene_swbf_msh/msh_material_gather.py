@@ -54,6 +54,9 @@ def _read_material_props_rendertype(props) -> Rendertype:
     return _RENDERTYPES_MAPPING[props.rendertype]
 
 def _read_material_props_flags(props) -> MaterialFlags:
+    if "REFRACTION" in props.rendertype:
+        return MaterialFlags.BLENDED_TRANSPARENCY
+
     flags = MaterialFlags.NONE
 
     if props.blended_transparency:

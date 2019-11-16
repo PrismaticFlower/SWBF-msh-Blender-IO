@@ -3,23 +3,19 @@
 import bpy
 from bpy.props import StringProperty, BoolProperty, EnumProperty, FloatVectorProperty, IntProperty
 from bpy.types import PropertyGroup
+from .msh_material_ui_strings import *
 
 UI_MATERIAL_RENDERTYPES = (
-    ('NORMAL_BF2', "00 Normal (SWBF2)", "Normal Material. Unlike you there is nothing inherently awesome "
-                                        "about this material. By default it has per-vertex diffuse "
-                                        "lighting and can also have a detail map."),
-    ('SCROLLING_BF2', "03 Scrolling (SWBF2)", "Scrolling Material"),
-    ('ENVMAPPED_BF2', "06 Envmapped (SWBF2)", "Envmapped Material"),
-    ('ANIMATED_BF2', "07 Animated (SWBF2)", "Animated Material"),
-    ('REFRACTION_BF2', "22 Refractive (SWBF2)", "Refractive Material"),
-    ('BLINK_BF2', "25 Blink (SWBF2)", "Blinking Material\n\n"
-                                      "Note: If you see any statues while using this material you "
-                                      "are advised **not** to blink (or take your eyes off the statue under any circumstances) "
-                                      "and immediately make your way to a crowded public space."),
-    ('NORMALMAPPED_TILED_BF2', "24 Normalmapped Tiled (SWBF2)", "Normalmapped Tiled Material"),
-    ('NORMALMAPPED_ENVMAPPED_BF2', "26 Normalmapped Envmapped (SWBF2)", "Normalmapped Envmapped Material"),
-    ('NORMALMAPPED_BF2', "27 Normalmapped (SWBF2)", "Normalmapped Material"),
-    ('NORMALMAPPED_TILED_ENVMAPPED_BF2', "26 Normalmapped Tiled Envmapped (SWBF2)", "Normalmapped Tiled Envmapped Material"))
+    ('NORMAL_BF2', "00 Normal (SWBF2)", UI_RENDERTYPE_NORMAL_BF2_DESC),
+    ('SCROLLING_BF2', "03 Scrolling (SWBF2)", UI_RENDERTYPE_SCROLLING_BF2_DESC),
+    ('ENVMAPPED_BF2', "06 Envmapped (SWBF2)", UI_RENDERTYPE_ENVMAPPED_BF2_DESC),
+    ('ANIMATED_BF2', "07 Animated (SWBF2)", UI_RENDERTYPE_ANIMATED_BF2_DESC),
+    ('REFRACTION_BF2', "22 Refractive (SWBF2)", UI_RENDERTYPE_REFRACTION_BF2_DESC),
+    ('BLINK_BF2', "25 Blink (SWBF2)", UI_RENDERTYPE_BLINK_BF2_DESC),
+    ('NORMALMAPPED_TILED_BF2', "24 Normalmapped Tiled (SWBF2)", UI_RENDERTYPE_NORMALMAPPED_TILED_BF2_DESC),
+    ('NORMALMAPPED_ENVMAPPED_BF2', "26 Normalmapped Envmapped (SWBF2)", UI_RENDERTYPE_NORMALMAPPED_ENVMAPPED_BF2_DESC),
+    ('NORMALMAPPED_BF2', "27 Normalmapped (SWBF2)", UI_RENDERTYPE_NORMALMAPPED_BF2_DESC),
+    ('NORMALMAPPED_TILED_ENVMAPPED_BF2', "29 Normalmapped Tiled Envmapped (SWBF2)", UI_RENDERTYPE_NORMALMAPPED_TILED_ENVMAPPED_BF2_DESC))
 
 def _make_anim_length_entry(length):
     from math import sqrt
@@ -86,23 +82,20 @@ class MaterialProperties(PropertyGroup):
                        default=False)
 
     perpixel: BoolProperty(name="Per-Pixel Lighting",
-                           description="Use per-pixel lighting instead of per-vertex for diffuse lighting. "
-                                       "Be warned due to the way SWBFII handles per-pixel lighting this "
-                                       "adds an extra draw call for each segment using the material.",
+                           description="Use per-pixel lighting instead of per-vertex for diffuse lighting.",
                            default=False)
 
     specular: BoolProperty(name="Specular Lighting",
                            description="Use specular lighting as well as diffuse lighting. A gloss map "
-                                       "In the diffuse map's and normal map's alpha channel can be used "
+                                       "in the diffuse map's and normal map's alpha channel can be used "
                                        "to attenuate the specular lighting's strength. (More transparent = less strong).\n\n"
-                                       
-                                       "Be warned due to the way SWBFII handles specular lighting this "
-                                       "adds an extra draw call for each segment using the material.",
+                                       "The Specular Colour controls the colour of the reflected specular highlights, "
+                                       "like the diffuse map but for specular lighting and global across the material.",
                            default=False)
 
     doublesided: BoolProperty(name="Doublesided",
-                              description="Disable backface culling, "
-                                          "causing both sides of the material to be rasterized.",
+                              description="Disable backface culling, causing both sides of the surface to be drawn. "
+                                          "Usually only the front facing surface is drawn.",
                               default=False)
 
     detail_map_tiling_u: IntProperty(name="Detail Map Tiling U",
@@ -205,41 +198,41 @@ class MaterialPropertiesPanel(bpy.types.Panel):
         layout.prop(material_props, "rendertype")
         layout.prop(material_props, "specular_color")
 
-        layout.label(text="Transparency Flags: ")
-        row = layout.row()
-        row.prop(material_props, "blended_transparency")
-        row.prop(material_props, "additive_transparency")
-        row.prop(material_props, "hardedged_transparency")
-
-        layout.label(text="Material Flags: ")
-        row = layout.row()
-        row.prop(material_props, "unlit")
-        row.prop(material_props, "glow")
-        row = layout.row()
-        row.prop(material_props, "perpixel")
-        row.prop(material_props, "specular")
-        layout.prop(material_props, "doublesided")
-
         if "REFRACTION" not in material_props.rendertype:
+            layout.label(text="Transparency Flags: ")
+            row = layout.row()
+            row.prop(material_props, "blended_transparency")
+            row.prop(material_props, "additive_transparency")
+            row.prop(material_props, "hardedged_transparency")
+
+            layout.label(text="Material Flags: ")
+            row = layout.row()
+            row.prop(material_props, "unlit")
+            row.prop(material_props, "glow")
+            row = layout.row()
+            row.prop(material_props, "perpixel")
+            row.prop(material_props, "specular")
+            layout.prop(material_props, "doublesided")
+
             layout.label(text="Material Data: ")
             row = layout.row()
 
-        if "SCROLLING" in material_props.rendertype:
-            row.prop(material_props, "scroll_speed_u")
-            row.prop(material_props, "scroll_speed_v")
-        elif "ANIMATED" in material_props.rendertype:
-            row.prop(material_props, "animation_length")
-            row = layout.row()
-            row.prop(material_props, "animation_speed")
-        elif "BLINK" in material_props.rendertype:
-            row.prop(material_props, "blink_min_brightness")
-            row.prop(material_props, "blink_speed")
-        elif "NORMALMAPPED_TILED" in material_props.rendertype:
-            row.prop(material_props, "normal_map_tiling_u")
-            row.prop(material_props, "normal_map_tiling_v")
-        elif "REFRACTION" not in material_props.rendertype:
-            row.prop(material_props, "detail_map_tiling_u")
-            row.prop(material_props, "detail_map_tiling_v")
+            if "SCROLLING" in material_props.rendertype:
+                row.prop(material_props, "scroll_speed_u")
+                row.prop(material_props, "scroll_speed_v")
+            elif "ANIMATED" in material_props.rendertype:
+                row.prop(material_props, "animation_length")
+                row = layout.row()
+                row.prop(material_props, "animation_speed")
+            elif "BLINK" in material_props.rendertype:
+                row.prop(material_props, "blink_min_brightness")
+                row.prop(material_props, "blink_speed")
+            elif "NORMALMAPPED_TILED" in material_props.rendertype:
+                row.prop(material_props, "normal_map_tiling_u")
+                row.prop(material_props, "normal_map_tiling_v")
+            else:
+                row.prop(material_props, "detail_map_tiling_u")
+                row.prop(material_props, "detail_map_tiling_v")
 
         layout.label(text="Texture Maps: ")
         layout.prop(material_props, "diffuse_map")
