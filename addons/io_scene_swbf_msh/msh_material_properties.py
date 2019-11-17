@@ -99,25 +99,25 @@ class MaterialProperties(PropertyGroup):
                               default=False)
 
     detail_map_tiling_u: IntProperty(name="Detail Map Tiling U",
-                                     description="Tiling of the detail map in the U direction. (0 = no tiling).",
+                                     description="Tiling of the Detail Map in the U direction. (0 = no tiling).",
                                      default=0,
                                      min=0, max=255,
                                      soft_min=0, soft_max=255)
 
     detail_map_tiling_v: IntProperty(name="Detail Map Tiling V",
-                                     description="Tiling of the detail map in the V direction. (0 = no tiling).",
+                                     description="Tiling of the Detail Map in the V direction. (0 = no tiling).",
                                      default=0,
                                      min=0, max=255,
                                      soft_min=0, soft_max=255)
 
     normal_map_tiling_u: IntProperty(name="Normal Map Tiling U",
-                                     description="Tiling of the normal map in the U direction. (0 = no tiling).",
+                                     description="Tiling of the Normal Map in the U direction. (0 = no tiling).",
                                      default=0,
                                      min=0, max=255,
                                      soft_min=0, soft_max=255)
 
     normal_map_tiling_v: IntProperty(name="Normal Map Tiling V",
-                                     description="Tiling of the normal map in the V direction. (0 = no tiling).",
+                                     description="Tiling of the Normal Map in the V direction. (0 = no tiling).",
                                      default=0,
                                      min=0, max=255,
                                      soft_min=0, soft_max=255)
@@ -159,7 +159,7 @@ class MaterialProperties(PropertyGroup):
 
     diffuse_map: StringProperty(name="Diffuse Map",
                                 description="The basic diffuse map for the material. The alpha channel "
-                                            "is either the transparency map, glow map or gloss map, "
+                                            "is either the Transparency Map, Glow Map or Gloss Map, "
                                             "depending on the selected rendertype and flags.",
                                 default="white.tga")
 
@@ -171,7 +171,7 @@ class MaterialProperties(PropertyGroup):
     normal_map: StringProperty(name="Normal Map",
                                description="Normal maps can provide added detail from lighting. "
                                            "If Specular is enabled the alpha channel will be "
-                                           "the gloss map.")
+                                           "the Gloss Map.")
 
     environment_map: StringProperty(name="Environment Map",
                                     description="Environment map for the material. Provides static "

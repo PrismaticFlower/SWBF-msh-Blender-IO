@@ -12,6 +12,7 @@ Material context.
 ![.msh Material Panel](images/materials.png)
 
 > TODO: Explain why some .msh rendertypes were left out of the addon. (The short answer is they're either redundant or outright unused.)
+
 > TODO: Document what rendertypes/flags are multipass and cause the model to be drawn more than once. And explain the implications of that.
 
 ### Materials.Rendertype
@@ -122,7 +123,9 @@ Hardedged/alpha cutout/clip transparency. Any point on the material with an alph
 Makes the material unlit/emissive. Useful for anything that is meant to be giving light but not reflecting any/much.
 
 #### Materials.Flags.Glow
-Same as 'Unlit' but also enables the use of a Glow Map in the diffuse texture's alpha channel. The material will be significantly significantly brightened based on how opaque the glowmap is.
+Same as 'Unlit' but also enables the use of a Glow Map in the diffuse texture's alpha channel. The material will be significantly significantly brightened based on how opaque the Glow Map is.
+
+Note that despite the name this doesn't automatically create "glowing" materials. What it does do is let you brighten a material enough so that it'll pass the game's bloom threshold (which is set by the map) and then the bloom effect will cause it to "glow".
 
 #### Materials.Flags.Per-Pixel Lighting
 Calculate lighting per-pixel instead of per-vertex for diffuse lighting.
@@ -136,21 +139,102 @@ The Specular Colour controls the colour of the reflected specular highlights, li
 Disable backface culling, causing both sides of the surface to be drawn. Usually only the front facing surface is drawn.
 
 ### Materials.Data
-> TODO: Write this section
+
+#### Materials.Data.Detail Map Tiling U
+Tiling of the Detail Map in the U direction. A value of 0 is valid and means no tiling.
+
+#### Materials.Data.Detail Map Tiling V
+Tiling of the Detail Map in the V direction. A value of 0 is valid and means no tiling.
+
+#### Materials.Data.Normal Map Tiling U
+Tiling of the Normal Map in the U direction. A value of 0 is valid and means no tiling.
+
+#### Materials.Data.Normal Map Tiling V
+Tiling of the Normal Map in the V direction. A value of 0 is valid and means no tiling.
+
+#### Materials.Data.Scroll Speed U
+Texture scroll speed in the U direction.
+
+#### Materials.Data.Scroll Speed V
+Texture scroll speed in the V direction.
+
+#### Materials.Data.Animation Length
+Number of frames in the texture animation.
+
+Valid Values
+|     |     |     |     |     |     |     |     |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1   | 4   | 9   | 16  | 25  | 36  | 49  | 64  |
+| 81  | 100 | 121 | 144 | 169 | 196 | 225 |     |
+
+#### Materials.Data.Animation Speed
+Animation speed in frames per second.
+
+#### Materials.Data.Blink Minimum Brightness
+Sets the strength of the material's diffuse at the bottom of the "blink".
+
+#### Materials.Data.Blink Speed
+Speed of blinking, higher is faster.
 
 ### Materials.Texture Maps
-> TODO: Write this section
 
-### Materials.Rendertypes Table
-| Rendertype                           | `ATRB` Data0             | `ATRB` Data1        | `ATRB` Number | `ATRB` Number Hex |
-| ------------------------------------ |:------------------------:|:-------------------:|:-------------:| -----------------:|
-| Normal (SWBF2)                       | Detail Map Tiling U      | Detail Map Tiling V | 00            | 00                |
-| Scrolling (SWBF2)                    | Scroll Speed U           | Scroll Speed V      | 03            | 03                |
-| Envmapped (SWBF2)                    | Detail Map Tiling U      | Detail Map Tiling V | 06            | 06                |
-| Animated (SWBF2)                     | Animation Length         | Animation Speed     | 07            | 07                |
-| Refractive (SWBF2)                   | Detail Map Tiling U      | Detail Map Tiling V | 22            | 16                |
-| Normalmapped Tiled (SWBF2)           | Normal Map Tiling U      | Normal Map Tiling V | 24            | 18                |
-| Blink (SWBF2)                        | Blink Minimum Brightness | Blink Speed         | 25            | 19                |
-| Normalmapped Envmapped (SWBF2)       | Detail Map Tiling U      | Detail Map Tiling V | 26            | 1A                |
-| Normalmapped (SWBF2)                 | Detail Map Tiling U      | Detail Map Tiling V | 27            | 1B                |
-| Normalmapped Tiled Envmapped (SWBF2) | Normal Map Tiling U      | Normal Map Tiling V | 29            | 1D                |
+#### Materials.Texture Maps.Diffuse Map
+The basic diffuse map for the material. The alpha channel is either the Transparency Map, Glow Map or Gloss Map, depending on the selected rendertype and flags.
+
+#### Materials.Texture Maps.Detail Map
+Detail maps allow you to add in 'detail' to the Diffuse Map at runtime. 
+
+Or they can be used as fake ambient occlusion maps or even wacky emissive maps.
+
+See Appendix Detail Map Blending for a rundown of the details of how they're blended in
+with the Diffuse Map.
+
+#### Materials.Texture Maps.Normal Map
+Normal maps can provide added detail from lighting. They work much the same way as in any other game/application that uses Tangent Space Normal Maps. See Appendix Normal Map Example if you require a rundown of Normal Maps.
+
+If Specular is enabled the alpha channel will be the Gloss Map.
+
+#### Materials.Texture Maps.Environment Map
+Environment map for the material. Used to provide static reflections for the model. Must be a cubemap, see Appendix Cubemap Layout.
+
+#### Materials.Texture Maps.Distortion Map
+Distortion maps control how Refractive materials distort the scene behind them. Should be a Normal Map with '-forceformat v8u8' in it's '.tga.option' file. See Appendix .tga.option Files.
+
+## Appendices
+
+### Appendix Detail Map Blending
+
+> TODO: Write this section (with pretty pictures).
+
+### Appendix Normal Map Example
+
+> TODO: Write this section (with pretty pictures).
+
+### Appendix Cubemap Layout
+
+> TODO: Write this section (with layout reference).
+
+### Appendix .msh.option Files
+
+> TODO: Should this section exist?
+
+> TODO: Write this section.
+
+### Appendix .tga.option Files
+
+> TODO: Write this section.
+
+### Appendix Rendertypes Table
+| Rendertype                           | `ATRB` Data0             | `ATRB` Data1        | `ATRB` Number | `ATRB` Number Hex | `TX0D`      | `TX1D`         | `TX2D`     | `TX3D`          |
+| ------------------------------------ |:------------------------:|:-------------------:|:-------------:|:-----------------:|:-----------:|:--------------:|:----------:| ---------------:|
+| Normal (SWBF2)                       | Detail Map Tiling U      | Detail Map Tiling V | 00            | 00                | Diffuse Map |                | Detail Map |                 |
+| Scrolling (SWBF2)                    | Scroll Speed U           | Scroll Speed V      | 03            | 03                | Diffuse Map |                | Detail Map |                 |
+| Envmapped (SWBF2)                    | Detail Map Tiling U      | Detail Map Tiling V | 06            | 06                | Diffuse Map |                | Detail Map | Environment Map |
+| Animated (SWBF2)                     | Animation Length         | Animation Speed     | 07            | 07                | Diffuse Map |                | Detail Map |                 |
+| Refractive (SWBF2)                   | Detail Map Tiling U      | Detail Map Tiling V | 22            | 16                | Diffuse Map | Distortion Map |            |                 |
+| Normalmapped Tiled (SWBF2)           | Normal Map Tiling U      | Normal Map Tiling V | 24            | 18                | Diffuse Map | Normal Map     | Detail Map |                 |
+| Blink (SWBF2)                        | Blink Minimum Brightness | Blink Speed         | 25            | 19                | Diffuse Map |                | Detail Map |                 |
+| Normalmapped Envmapped (SWBF2)       | Detail Map Tiling U      | Detail Map Tiling V | 26            | 1A                | Diffuse Map | Normal Map     | Detail Map | Environment Map |
+| Normalmapped (SWBF2)                 | Detail Map Tiling U      | Detail Map Tiling V | 27            | 1B                | Diffuse Map | Normal Map     | Detail Map |                 |
+| Normalmapped Tiled Envmapped (SWBF2) | Normal Map Tiling U      | Normal Map Tiling V | 29            | 1D                | Diffuse Map | Normal Map     | Detail Map | Environment Map |
+
