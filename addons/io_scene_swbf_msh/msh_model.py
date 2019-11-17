@@ -61,7 +61,7 @@ class Model:
     model_type: ModelType = ModelType.NULL
     hidden: bool = True
 
-    transform: ModelTransform = ModelTransform()
+    transform: ModelTransform = field(default_factory=ModelTransform)
 
     geometry: List[GeometrySegment] = None
     collisionprimitive: CollisionPrimitive = None
