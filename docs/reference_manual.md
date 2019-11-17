@@ -162,6 +162,7 @@ Texture scroll speed in the V direction.
 Number of frames in the texture animation.
 
 Valid Values
+
 |     |     |     |     |     |     |     |     |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | 1   | 4   | 9   | 16  | 25  | 36  | 49  | 64  |
