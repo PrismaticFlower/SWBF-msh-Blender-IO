@@ -204,7 +204,7 @@ def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveSh
         return CollisionPrimitiveShape.SPHERE
     if "cylinder" in name or "cyln" in name or "cyl" in name:
         return CollisionPrimitiveShape.CYLINDER
-    if "box" in name: # TODO: Accept cube, cuboid
+    if "box" in name or "cube" in name or "cuboid" in name:
         return CollisionPrimitiveShape.BOX
 
     raise RuntimeError(f"Object '{obj.name}' has no primitive type specified in it's name!")
