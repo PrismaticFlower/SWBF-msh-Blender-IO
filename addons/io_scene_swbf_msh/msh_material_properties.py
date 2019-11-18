@@ -175,7 +175,7 @@ class MaterialProperties(PropertyGroup):
 
     environment_map: StringProperty(name="Environment Map",
                                     description="Environment map for the material. Provides static "
-                                                "reflections around. Must be a cubemap.")
+                                                "reflections around the surface. Must be a cubemap.")
 
     distortion_map: StringProperty(name="Distortion Map",
                                    description="Distortion maps control how Refractive materials "
