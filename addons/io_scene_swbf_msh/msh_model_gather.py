@@ -123,8 +123,8 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
         polygons[tri.material_index].add(tri.polygon_index)
         segments[tri.material_index].triangles.append([
             add_vertex(tri.material_index, tri.vertices[0], tri.loops[0]),
-            add_vertex(tri.material_index, tri.vertices[2], tri.loops[2]),
-            add_vertex(tri.material_index, tri.vertices[1], tri.loops[1])])
+            add_vertex(tri.material_index, tri.vertices[1], tri.loops[1]),
+            add_vertex(tri.material_index, tri.vertices[2], tri.loops[2])])
 
     for segment, remap, polys in zip(segments, vertex_remap, polygons):
         for poly_index in polys:
@@ -210,10 +210,10 @@ def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveSh
     raise RuntimeError(f"Object '{obj.name}' has no primitive type specified in it's name!")
 
 def convert_vector_space(vec: Vector) -> Vector:
-    return Vector(vec.xzy)
+    return Vector((-vec.x, vec.z, vec.y))
 
 def convert_scale_space(vec: Vector) -> Vector:
     return Vector(vec.xzy)
 
 def convert_rotation_space(quat: Quaternion) -> Quaternion:
-    return Quaternion((quat.w, quat.x, quat.z, quat.y))
+    return Quaternion((-quat.w, quat.x, -quat.z, -quat.y))
