@@ -24,8 +24,8 @@ class CollisionPrimitiveShape(Enum):
 class ModelTransform:
     """ Class representing a `TRAN` section in a .msh file. """
 
-    translation: Vector = Vector((0.0, 0.0, 0.0))
-    rotation: Quaternion = Quaternion((1.0, 0.0, 0.0, 0.0))
+    translation: Vector = field(default_factory=Vector)
+    rotation: Quaternion = field(default_factory=Quaternion)
 
 @dataclass
 class GeometrySegment:

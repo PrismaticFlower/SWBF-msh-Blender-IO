@@ -52,10 +52,6 @@ Saving polygons also will make any hypothetical importer work better, since quad
 
 The triangle strips are generated using a brute-force method that seams to give decent results.
 
-#### Delta transforms are combined with regular transforms on export.
-Unsurprisingly Blender's delta transforms have no meaningful representation in .msh files. 
-So they are combined with the regular transform during export.
-
 #### If a scene has no materials a default one will be added to the resulting .msh file.
 Can't imagine this coming up much (Maybe if you're model is just for collisions or shadows?) but that's how it works.
 

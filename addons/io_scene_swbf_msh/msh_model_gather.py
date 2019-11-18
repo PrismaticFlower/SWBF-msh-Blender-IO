@@ -27,12 +27,14 @@ def gather_models() -> List[Model]:
 
         obj = uneval_obj.evaluated_get(depsgraph)
 
+        local_translation, local_rotation, _ = obj.matrix_local.decompose()
+
         model = Model()
         model.name = obj.name
         model.model_type = get_model_type(obj)
         model.hidden = get_is_model_hidden(obj)
-        model.transform.rotation = convert_rotation_space(obj.rotation_quaternion @ obj.delta_rotation_quaternion)
-        model.transform.translation = convert_vector_space(add_vec(obj.location, obj.delta_location))
+        model.transform.rotation = convert_rotation_space(local_rotation)
+        model.transform.translation = convert_vector_space(local_translation)
 
         if obj.parent is not None:
             model.parent = obj.parent.name
@@ -42,8 +44,9 @@ def gather_models() -> List[Model]:
             model.geometry = create_mesh_geometry(mesh)
             obj.to_mesh_clear()
 
-            mesh_scale = convert_vector_space(get_object_worldspace_scale(obj))
-            scale_segments(mesh_scale, model.geometry)
+            _, _, world_scale = obj.matrix_world.decompose()
+            world_scale = convert_scale_space(world_scale)
+            scale_segments(world_scale, model.geometry)
 
         if get_is_collision_primitive(obj):
             model.collisionprimitive = get_collision_primitive(obj)
@@ -131,17 +134,6 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
 
     return segments
 
-def get_object_worldspace_scale(obj: bpy.types.Object) -> Vector:
-    """ Get the worldspace scale transform for a Blender object. """
-
-    scale = mul_vec(obj.scale, obj.delta_scale)
-
-    while obj.parent is not None:
-        obj = obj.parent
-        scale = mul_vec(scale, mul_vec(obj.scale, obj.delta_scale))
-
-    return scale
-
 def get_model_type(obj: bpy.types.Object) -> ModelType:
     """ Get the ModelType for a Blender object. """
     # TODO: Skinning support, etc
@@ -194,7 +186,7 @@ def get_collision_primitive(obj: bpy.types.Object) -> CollisionPrimitive:
             raise RuntimeError(f"Object '{obj.name}' is being used as a cylinder collision "
                                f"primitive but it's X and Y dimensions are not uniform!")
         primitive.radius = obj.dimensions[0] * 0.5
-        primitive.height = obj.dimensions[2] * 0.5
+        primitive.height = obj.dimensions[2]
     elif primitive.shape == CollisionPrimitiveShape.BOX:
         primitive.radius = obj.dimensions[0] * 0.5
         primitive.height = obj.dimensions[2] * 0.5
@@ -212,7 +204,7 @@ def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveSh
         return CollisionPrimitiveShape.SPHERE
     if "cylinder" in name or "cyln" in name or "cyl" in name:
         return CollisionPrimitiveShape.CYLINDER
-    if "box" in name:
+    if "box" in name: # TODO: Accept cube, cuboid
         return CollisionPrimitiveShape.BOX
 
     raise RuntimeError(f"Object '{obj.name}' has no primitive type specified in it's name!")
