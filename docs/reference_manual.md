@@ -1,8 +1,96 @@
-## Collision Primitives
-Collision primitives are the game's (according to the docs) lightweight method of adding collision to an 
-object and are preferred to collision meshes where reasonable.
+## Collision
+For anything that isn't a player model (they get their own collision from the game) or a weapon you'll probably want it to have collision so the player can actually interact with it.
 
-> TODO: Finish writing this section.
+Pandemic's orginal documentation for collision reccomends Collision Primitives wherever possible
+and Collision Meshes where you need accuracy.
+
+All collision objects are created by giving an object a special name. Either "collision_\[-flags-\]meshname" for meshes or "p_\[-flags-\]primitivename" for primitives. The Collision Flags are optional. 
+
+| Name Examples      |
+|:------------------ |
+| p_-tb-cylinder     |
+| p_cube             |
+| collision_-os-mesh |
+| collision_mesh     |
+
+There is a limit of 64 collision objects per model file. Collision meshes are merged by modelmunge and as a result they only ever take up one slot.
+
+> NOTE: The limit for collision primitives in SWBF1 is 32.
+
+### Collision Primitives
+Collision primitives are the game's (according to the docs) lightweight method of adding collision to an 
+object and are preferred to collision meshes whenever reasonable.
+
+Unfortunately Blender does not seam to have a way to just have a Sphere, Cylinder or Box based on it's dimensions. It has to be a mesh. This a problem because the game defines collision primitives based on their type and dimensions.
+
+In order to provide support for exporting them the addon requires you to follow some conventions. 
+
+First all collision primitive objects must start with "P_", this let's the addon know the object is a collision primitive.
+
+Next the object must contain one of the below strings in "Possible Name" column to let the addon know the shape it should use for the primitive. So "p_hitbox" would define a box primitive, whereas "p_icosphere_crithit" would define a sphere primitive.
+
+| Type     | Possible Name               |
+|:--------:|:---------------------------:|
+| sphere   | "sphere", "sphr" or "spr"   |
+| cylinder | "cylinder", "cyln" or "cyl" |
+| box      | "box", "cube" or "cuboid"   |
+
+Finally the addon will grab the dimensions of the object and use those as the size of primitive. If the dimenions do not make sense for a primitive type (for instance if the dimensions of a sphere indicate would define it as an ellipsoid) then an error will be raised on export in order to prevent you exporting collision that does not match your visual representation of it.  
+
+### Collision Meshes
+Collision meshes are for when Collision Primitives are not able to represent the collision accurately. They should be a low-resolution version of the original mesh. In order to provide accurate collisions they should completely enclose the original mesh. (That is no face in the collision mesh should dip below a face in the original mesh.)
+
+A useful tool for quickly making collision meshes is the [Convex Hull](https://docs.blender.org/manual/en/latest/modeling/meshes/editing/vertices.html#convex-hull) vertex tool. For plenty of meshes the convex hull of the mesh will provide believable collisions ingame, be fast to make (you just need to make a copy of the mesh and then Blender can do it for you), perform well and use little memory.
+
+Collision meshes are combined by modelmunge. So if two collision meshes have conflicting flags (like "collision_-os-mesh0" and "collision_-v-mesh1") it is unspecified which flags will be used. If one of the meshes does not have flags like (like "collision_-os-mesh0" and "collision_mesh1") then it's flags will become that of the other mesh.
+
+Furthermore because collision meshes are combined by modelmunge they can not be animated/moved at runtime (they'll move, just all as one part and relative to the objects root only). If you need moving parts (for say a turret on a vehicle) to have collision you must use Collision Primitives.
+
+### Collision Flags
+
+| Flag | Meaning                             |
+|:----:|:----------------------------------- |
+| s    | Collides with soldiers.             |
+| v    | Collides with vehicles.             |
+| b    | Collides with buildings/props.      |
+| t    | Collides with terrain.              |
+| o    | Collides with ordnance/projectiles. |
+
+> NOTE: SWBF1 does not support the collision flags naming scheme and must instead explicitly call out primitves as being only for soldiers/projectiles/etc in the .odf.
+
+
+### Vehicles and Collision
+Vehicles have a couple special cases with collision. Below there are going to be some references to .odf files since they are where the special cases come from. Explaining .odf files and there place in SWBF's toolchain is outside the scope of this documentation.
+
+The first is that the collision the AI aim at can be customized by setting "TargetableCollision" in the vehicles .odf to the name of a Collision Primitive. Nothing will actually collide with the set primitive. However units inside the "targetable" Collision Primitive will be able to enter the vehicle as though they were touching it.
+
+The second is that if the vehicle has "Body Springs" (through "AddSpringBody" in .odfs) then the collision flags of both Collision Primitives and Collision Meshes will be ignored. Furthermore they actually won't be used at all unless explictly called out in the .odf. The following properties must be used to manually reference all of the vehicles collision primitives. 
+
+| Property            | Equivalent Flag                     |
+|:------------------- |:-----------------------------------:|
+| SoldierCollision    | s                                   |
+| VehicleCollision    | v                                   |
+| BuildingCollision   | b                                   |
+| TerrainCollision    | t                                   |
+| OrdnanceCollision   | o                                   | 
+| TargetableCollision |                                     |
+
+Using them in your .odf is as simple as using any other .odf property. 
+```
+SoldierCollision = "p_-s-cube"
+```
+
+To reference a Collision Mesh using these properties you must do the following. Using the name of the Collision Mesh from Blender/.msh file will not work.
+```
+SoldierCollision = "CollisionMesh"
+```
+
+> NOTE: The above is also how collision primitives must be setup in SWBF1.
+
+Finally vehicles can also set a Collision Primitve to be their "critical hit" spot using "HitLocation" in the .odf.
+```
+HitLocation = "p_icosphere_crithit 3.0" // The trailing number is the damage multiplier for the critical hit.
+```
 
 ## Materials
 Since Blender's sophisticated materials are a poor fit for what .msh files can represent the addon defines
@@ -111,8 +199,6 @@ Regular alpha blended transparency.
 
 #### Materials.Transparency Flags.Additive
 Additive transparency, objects behind the material will appear brighter because the material will be "added" on top of the scene.
-
-> TODO: Explain the difference between Blended + Additive vs just Additive
 
 #### Materials.Transparency Flags.Hardedged
 Hardedged/alpha cutout/clip transparency. Any point on the material with an alpha value below the threshold of 0.5/0x80/128 will be discarded. Useful for leaves, flowers, wire fences and all sorts.
