@@ -11,6 +11,7 @@ from .msh_utilities import *
 
 SKIPPED_OBJECT_TYPES = {"LATTICE", "CAMERA", "LIGHT", "SPEAKER", "LIGHT_PROBE"}
 MESH_OBJECT_TYPES = {"MESH", "CURVE", "SURFACE", "META", "FONT", "GPENCIL"}
+MAX_MSH_VERTEX_COUNT = 32767
 
 def gather_models() -> List[Model]:
     """ Gathers the Blender objects from the current scene and returns them as a list of
@@ -47,6 +48,12 @@ def gather_models() -> List[Model]:
             _, _, world_scale = obj.matrix_world.decompose()
             world_scale = convert_scale_space(world_scale)
             scale_segments(world_scale, model.geometry)
+    
+            for segment in model.geometry:
+                if len(segment.positions) > MAX_MSH_VERTEX_COUNT:
+                    raise RuntimeError(f"Object '{obj.name}' has resulted in a .msh geometry segment that has "
+                                       f"more than {MAX_MSH_VERTEX_COUNT} vertices! Split the object's mesh up "
+                                       f"and try again!")
 
         if get_is_collision_primitive(obj):
             model.collisionprimitive = get_collision_primitive(obj)

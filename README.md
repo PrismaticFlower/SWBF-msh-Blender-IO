@@ -59,10 +59,10 @@ Can't imagine this coming up much (Maybe if you're model is just for collisions 
 This shouldn't be relevant as any mesh that you haven't assigned a material to is likely to just be collision geometry or shadow geometry.
 
 ### Work to be done
-- [ ] Raise an error when a .msh segment has more than 32767 vertices.
+- [x] Raise an error when a .msh segment has more than 32767 vertices.
 - [x] Convert from Blender's coordinate space to .msh cooordinate space.
 - [x] Add support for exporting materials. Blender's materials are all based around it's own renderers, so possibly going to need custom UI and properties in order to provide something useful for .msh files.
-- [ ] Add support for collision primitives. Blender doesn't seam to support having basic boxes, cylinders or spheres so it's likely some wacky rules and conventions will need to be used by the modeler. "Add a 1m mesh primitive, have "sphere/box/cylinder" in the name and control the size with the object's scale." Less intuitive than I'd like but it might be the best course of action.
+- [x] Add support for collision primitives. Blender doesn't seam to support having basic boxes, cylinders or spheres so it's likely some wacky rules and conventions will need to be used by the modeler. "Add a 1m mesh primitive, have "sphere/box/cylinder" in the name and control the size with the object's scale." Less intuitive than I'd like but it might be the best course of action.
 - [ ] Investigate and add support for exporting bones and vertex weights.
 - [ ] Investigate and add support for exporting animations.
 - [ ] Investigate if anything special needs to be done for lod/lowres exporting.
