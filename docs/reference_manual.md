@@ -11,6 +11,11 @@ Finally because of the way Shadow Volumes work for performance concerns it can b
 
 That's all there is to it. Basically just make sure your shadow meshes' object names start with "sv_", they're enclosed and not wasteful with their polygons. The exporter and then modelmunge will take care of everything from there.
 
+## Terrain Cutters
+In .msh files any object starting with "terraincutter" results in it "cutting" terrain when it is used as a prop in Zero Editor. Below the results of this can be seen for a cube named "terraincutter_Cube".
+
+![Example of a .msh cutting terrain in Zero](images/terraincut.png)
+
 ## Collision
 For anything that isn't a player model (they get their own collision from the game) or a weapon you'll probably want it to have collision so the player can actually interact with it.
 
