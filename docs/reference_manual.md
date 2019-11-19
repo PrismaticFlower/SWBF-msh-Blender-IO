@@ -1,3 +1,16 @@
+## Shadow Volumes
+SWBF's rendering engine uses Shadow Volumes for it's shadows. What this means is that the mesh for the shadow is seperate and different from the main mesh. And in order for your model to have shadows you must make the shadow mesh. 
+
+modelmunge will handle the actual Shadow Volume generation for you. You just have to make sure you follow a couple rules.
+
+The first is that any shadow mesh in your scene should begin with "sv_", this will mark it as a Shadow Volume.
+
+Next your the mesh for your Shadow Volume should form a completely enclosed mesh. It should have no gaps that let you see inside it.
+
+Finally because of the way Shadow Volumes work for performance concerns it can be advisable to not have your shadow mesh be full detail and instead have it be a reasonable (and believeable of course) low-resolution approxomation of your real mesh.
+
+That's all there is to it. Basically just make sure your shadow meshes' object names start with "sv_", they're enclosed and not wasteful with their polygons. The exporter and then modelmunge will take care of everything from there.
+
 ## Collision
 For anything that isn't a player model (they get their own collision from the game) or a weapon you'll probably want it to have collision so the player can actually interact with it.
 
