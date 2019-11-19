@@ -70,7 +70,7 @@ def create_scene_aabb(scene: Scene) -> SceneAABB:
     global_aabb = SceneAABB()
 
     for model in scene.models:
-        if model.geometry is None:
+        if model.geometry is None or model.hidden:
             continue
 
         model_world_matrix = get_model_world_matrix(model, scene.models)
