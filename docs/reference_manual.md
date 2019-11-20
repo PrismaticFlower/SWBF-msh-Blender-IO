@@ -1,3 +1,31 @@
+# Reference Manual
+
+## Index
+- [Exporter](#exporter)
+  + [Export Properties](#export-properties)
+  + [Export Failures](#export-failures)
+  + [Export Behaviour to Know About](#export-behaviour-to-know-about)
+- [Shadow Volumes](#shadow-volumes)
+- [Terrain Cutters](#terrain-cutters)
+- [Collision](#collision)
+  + [Collision Primitives](#collision-primitives)
+  + [Collision Meshes](#collision-meshes)
+  + [Collision Flags](#collision-flags)
+  + [Vehicles and Collision](#vehicles-and-collision)
+- [Materials](#materials)
+  + [Materials.Rendertype](#materialsrendertype)
+  + [Materials.Transparency Flags](#materialstransparency-flags)
+  + [Materials.Flags](#materialsflags)
+  + [Materials.Data](#materialsdata)
+  + [Materials.Texture Maps](#materialstexture-maps)
+- [Appendices](#appendices)
+  + [Appendix Detail Map Blending](#appendix-detail-map-blending)
+  + [Appendix Normal Map Example](#appendix-normal-map-example)
+  + [Appendix Cubemap Layout](#appendix-cubemap-layout)
+  + [Appendix .msh.option Files](#appendix-mshoption-files)
+  + [Appendix .tga.option Files](#appendix-tgaoption-files)
+  + [Appendix Rendertypes Table](#appendix-rendertypes-table)
+
 ## Exporter
 The currently exporter has pretty straight forward behaviour. It'll grab the current active scene and export it as a .msh file that can be consumed by Zero Editor and modelmunge.
 
@@ -62,7 +90,7 @@ This error indicates that an object in your scene has "p_" in it's name, indicat
 
 To solve this error consult the [Collision Primitives](#collision-primitives) section and rename the problematic Collision Primitive accordingly. Usually by adding "sphere, "cylinder" or "box" to the name.
 
-### Potential Edge Case Behaviour
+### Export Behaviour to Know About
 
 #### Materials for .msh files must be managed through the added UI panel named "SWBF .msh Properties" is added under the Material context.
 Unsurprisingly Blender's modern and sophisticated materials don't map down well/easilly to what .msh files support. Thus seperate properties are provided for all .msh material properties.
@@ -442,6 +470,8 @@ Distortion maps control how Refractive materials distort the scene behind them. 
 > TODO: Write this section.
 
 ### Appendix .tga.option Files
+
+> TODO: Should this section exist?
 
 > TODO: Write this section.
 
