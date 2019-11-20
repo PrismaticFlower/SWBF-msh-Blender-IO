@@ -1,3 +1,116 @@
+## Exporter
+The currently exporter has pretty straight forward behaviour. It'll grab the current active scene and export it as a .msh file that can be consumed by Zero Editor and modelmunge.
+
+> NOTE: A key limitation to know of is that there is currently no support for skinned meshes. (Meshes with vertex weights.) Support is planned in the future.
+
+### Export Properties
+
+#### Generate Triangle Strips
+Enables or disables Triangle Strips generation.
+
+Triangle strip generation can be slow for meshes with thousands of faces and is off by default to enable a fast mesh iteration workflow if desired.
+
+In order to improve runtime performance and reduce munged model size you are **strongly** advised to turn **Enable** triangle strip generation for your "final" export.
+
+For very complex scenes with meshes that have tens of thousands (or more) faces Blender may freeze up for a couple minutes while triangle strips are generated. Either minimize it and do something else on your PC while you wait and it'll eventually finish.
+
+### Export Failures
+There should be few things that can cause an export to fail. Should you encounter one you can consult the list below for how to remedy the situation. If you're error isn't on the list then feel free to [Open an issue](https://github.com/SleepKiller/SWBF-msh-Blender-Export/issues/new), remember to attach a .blend file that reproduces the issue.
+
+As of Blender 2.8 after an export has failed you can look in the "Scripting" workspace and in the bottom left corner you should be able to look for and find the description of the "RuntimeError" that caused the failure.
+
+![Example of failed .msh export.](images/failed_export_example.png)
+
+The "RuntimeError" at the top of the callstack should contain the error message. The [System Console](https://docs.blender.org/manual/en/latest/advanced/command_line/launch/windows.html?highlight=toggle%20system%20console#details) should also contain the error and can be easier to read.
+
+#### "RuntimeError: Error: Object does not have geometry data"
+This is currently known to only happen for [Grease Pencil](https://docs.blender.org/manual/en/latest/grease_pencil/index.html) objects. There is currently no support in Blender for easilly converting a Grease Pencil object into a temporary mesh in Python the same way you do for other objects, hence no direct support for exporting them.
+
+To solve this error you can manually convert the Grease Pencil object to a mesh before exporting.
+
+#### "RuntimeError: Object '\{object name\}' has resulted in a .msh geometry segment that has more than 32767 vertices! Split the object's mesh up and try again!"
+This error indicates that after turning a Blender mesh into geometry segments for a .msh file that one of the geometry segments
+had more vertices than is supported in a .msh file. 
+
+.msh geometry segments are created by iterating through a mesh's faces and assigning them to a segment based on their material. A mesh produces as many geometry segments as materials it uses. So a mesh that uses 3 materials will produce 3 geometry segments.
+
+To solve this error you must cut the offending Object's mesh up so that no single geometry segment made from it has more than 32767 vertices.
+
+#### "RuntimeError: Object '\{object name\}' is being used as a sphere collision primitive but it's dimensions are not uniform!"
+This error indicates that an object marked as a sphere Collision Primitive X length, Y length and Z length are not equal.
+
+Rather than export a collision primitive that doesn't match what you see in Blender the exporter instead raises the error to let you know and provide you the chance to fix it.
+
+Fixing it should be as simple as making sure the sure representing your Collision Primitive is indeed a sphere and not an ellipsoid. Make sure it's [Scale Transform](https://docs.blender.org/manual/en/latest/scene_layout/object/editing/transform/basics.html#scale) is uniform and that you have not made any changes to the vertices or faces that would cause the mesh to cease being a sphere. (Or an approximation of one.)
+
+If all else fails, simply add a new UV sphere or Ico Sphere with the intended radius and location of the problematic Collision Primitive. Then delete the old one and try exporting again.
+
+#### "RuntimeError: Object '\{object name\}' is being used as a cylinder collision primitive but it's X and Y dimensions are not uniform!"
+This error indicates that an object marked as a cylinder Collision Primitive X length and Y length are not equal. Cylinder Collision Primitives in .msh files require a uniform radius.
+
+Rather than export a collision primitive that doesn't match what you see in Blender the exporter instead raises the error to let you know and provide you the chance to fix it.
+
+In order to fix this first ensure the problematic object's [Scale Transform](https://docs.blender.org/manual/en/latest/scene_layout/object/editing/transform/basics.html#scale)'s X and Y axes have the same value. Then make sure there are no faces/vertices that are outside the intended radius of the cylinder and try again.
+
+If all else fails, simply add a new Cylinder with the intended radius, length, location and rotation of the problematic Collision Primitive. Then delete the old one and try exporting again.
+
+#### "RuntimeError: Object '\{object name\}' has no primitive type specified in it's name!"
+This error indicates that an object in your scene has "p_" in it's name, indicating it is a Collision Primitive but does not also contain a Collision Primitive type in it's name.
+
+To solve this error consult the [Collision Primitives](#collision-primitives) section and rename the problematic Collision Primitive accordingly. Usually by adding "sphere, "cylinder" or "box" to the name.
+
+### Potential Edge Case Behaviour
+
+#### Materials for .msh files must be managed through the added UI panel named "SWBF .msh Properties" is added under the Material context.
+Unsurprisingly Blender's modern and sophisticated materials don't map down well/easilly to what .msh files support. Thus seperate properties are provided for all .msh material properties.
+
+See the Materials section in this document for more info.
+
+#### Meshes and Transforms are converted from Blender's coordinate space to .msh file coordinate space during export.
+This involves swapping the Y and Z axes and mirroring the X axis. In most cases this should just create the result you expect as the resulting .msh file should be aligned the same way in Blender, ingame (after going through modelmunge) and in Zero Editor.
+
+#### For UV layers and vertex colors layers it is the active layer that is exported.
+Unlikely to come up since if you're working on a model for SWBF you're unlikely to have multiple layers to start with but incase you do, there you go.
+
+#### If a scene has multiple "roots" they will be reparented to a new "root" added during export.
+This is to make sure the .msh file only has one root in it. Any object that doesn't have a parent is considered a root.
+
+There is no need to explicitly make sure your scene only has one root as a result of this, it is fine to let the exporter add one and perform the reparenting.
+
+#### Object scales are applied during export in world space.
+Despite `.msh` files have a field in their transform section for scale it seams to get ignored by modelmunge.
+
+As a result there is no point in even trying to export the scale. Instead it is applied to a the vertex coordinates during export.
+
+The world space scale is fetched for an object and applied to all the vertex coordinates.
+
+#### Object types with no possible representation in .msh files are not exported unless they have children.
+Currently the exporter considers the following object types fall in this category. As I am unfamilar with Blender it is possible that more object types should be added.
+
+- Lattices
+- Cameras
+- Lights
+- Light Probes
+- Speakers
+
+If an object with one of the above types has children it is always exported as an empty.
+
+#### Objects whose name starts with "sv_", "p_" or "collision" will be marked as hidden in the .msh file.
+This should be consistent with other .msh exporters.
+
+#### For completeness poloygons (`NDXL` chunks), triangles (`NDXT`) and triangle strips (`STRP`) are all saved. 
+This should hopefully give the .msh files the greatest chance of being opened by the various tools out there.
+
+Saving polygons also will make any hypothetical importer work better, since quads and ngons could be restored on import.
+
+The triangle strips are generated using a brute-force method that seams to give decent results.
+
+#### If a scene has no materials a default one will be added to the resulting .msh file.
+Can't imagine this coming up much (Maybe if you're model is just for collisions or shadows?) but that's how it works.
+
+#### Meshes without any materials will be assigned the first material in the .msh file.
+This shouldn't be relevant as any mesh that you haven't assigned a material to is likely to just be collision geometry or shadow geometry.
+
 ## Shadow Volumes
 SWBF's rendering engine uses Shadow Volumes for it's shadows. What this means is that the mesh for the shadow is seperate and different from the main mesh. And in order for your model to have shadows you must make the shadow mesh. 
 

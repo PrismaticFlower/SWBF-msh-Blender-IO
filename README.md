@@ -3,60 +3,9 @@ WIP .msh (SWBF toolchain version) exporter for Blender 2.8
 
 Currently capable of exporting the active scene without collision primitives or skinning information. 
 
-### Behaviour to be aware of
+### Installing
 
-#### A UI panel named "SWBF .msh Properties" is added under the Material context.
-Unsurprisingly Blender's modern and sophisticated materials don't map down well/easilly to what .msh files support. Thus seperate properties are provided for all .msh material properties.
-
-#### For UV layers and vertex colors layers it is the active layer that is exported.
-Unlikely to come up since if you're working on a model for SWBF you're unlikely to have multiple layers to start 
-with but incase you do, there you go.
-
-#### If a scene has multiple "roots" they will be reparented to a new "root" added during export.
-This is to make sure the .msh file only has one root in it. Any object that doesn't have a parent is considered a root.
-There is no need to explicitly make sure your scene only has one root as a result of this, it is fine to let the exporter
-add one and perform the reparenting.
-
-#### Object scales are applied during export.
-Despite `.msh` files have a field in their transform section for scale it seams to get ignored by modelmunge. 
-As a result there is no point in even trying to export the scale. Instead it is applied to a the vertex coordinates during export.
-The way it is applied is very basic but it should give the expected result for most use cases. Currently only the scale component of 
-the transform hierarchy is applied but it'd probably be better to transform the coordinates in world space and then transform them 
-back into local space using only translation and rotation.
-
-#### Object types with no possible representation in .msh files are not exported unless they have children.
-Currently the exporter considers the following object types fall in this category. As I am unfamilar with Blender it is 
-possible that more object types should be added.
-
-- Lattices
-- Cameras
-- Lights
-- Light Probes
-- Speakers
-
-If an object with one of the above types has children it is always exported as an empty.
-
-#### Objects whose name starts with "sv_", "p_" or "collision" will be marked as hidden in the .msh file.
-This should be consistent with other .msh exporters. As far as I know the only special thing about collision meshes or
-"sv_" meshes is their name and the fact they're hidden. As such you should be able to just make a mesh and give it the right
-name to get a shadow volume or or collision mesh. (Collision primitives are still preferred from the game's standpoint, 
-but those aren't supported yet.)
-
-The check for if a name begins with "sv_", "p_" or "collision" is case-insensitive. So you should be able to do 
-"Collision-sv-mesh" if you prefer it to "collision-sv-mesh".
-
-#### For completeness poloygons (`NDXL` chunks), triangles (`NDXT`) and triangle strips (`STRP`) are all saved. 
-This should hopefully give the .msh files the greatest chance of being opened by the various tools out there.
-
-Saving polygons also will make any hypothetical importer work better, since quads and ngons could be restored on import.
-
-The triangle strips are generated using a brute-force method that seams to give decent results.
-
-#### If a scene has no materials a default one will be added to the resulting .msh file.
-Can't imagine this coming up much (Maybe if you're model is just for collisions or shadows?) but that's how it works.
-
-#### Meshes without any materials will be assigned the first material in the .msh file.
-This shouldn't be relevant as any mesh that you haven't assigned a material to is likely to just be collision geometry or shadow geometry.
+> TODO: Install instructions.
 
 ### Work to be done
 - [x] Raise an error when a .msh segment has more than 32767 vertices.
