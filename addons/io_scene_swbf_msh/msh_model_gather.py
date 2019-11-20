@@ -13,7 +13,7 @@ SKIPPED_OBJECT_TYPES = {"LATTICE", "CAMERA", "LIGHT", "SPEAKER", "LIGHT_PROBE"}
 MESH_OBJECT_TYPES = {"MESH", "CURVE", "SURFACE", "META", "FONT", "GPENCIL"}
 MAX_MSH_VERTEX_COUNT = 32767
 
-def gather_models() -> List[Model]:
+def gather_models(apply_modifiers: bool) -> List[Model]:
     """ Gathers the Blender objects from the current scene and returns them as a list of
         Model objects. """
 
@@ -26,7 +26,10 @@ def gather_models() -> List[Model]:
         if uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents:
             continue
 
-        obj = uneval_obj.evaluated_get(depsgraph)
+        if apply_modifiers:
+            obj = uneval_obj.evaluated_get(depsgraph)
+        else:
+            obj = uneval_obj
 
         local_translation, local_rotation, _ = obj.matrix_local.decompose()
 

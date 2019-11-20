@@ -14,6 +14,9 @@ In order to improve runtime performance and reduce munged model size you are **s
 
 For very complex scenes with meshes that have tens of thousands (or more) faces Blender may freeze up for a couple minutes while triangle strips are generated. Either minimize it and do something else on your PC while you wait and it'll eventually finish.
 
+#### Apply Modifiers
+Whether to apply [Modifiers](https://docs.blender.org/manual/en/latest/modeling/modifiers/index.html) during export or not.
+
 ### Export Failures
 There should be few things that can cause an export to fail. Should you encounter one you can consult the list below for how to remedy the situation. If you're error isn't on the list then feel free to [Open an issue](https://github.com/SleepKiller/SWBF-msh-Blender-Export/issues/new), remember to attach a .blend file that reproduces the issue.
 

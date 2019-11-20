@@ -82,11 +82,19 @@ class ExportMSH(Operator, ExportHelper):
         default=False
     )
 
+    apply_modifiers: BoolProperty(
+        name="Apply Modifiers",
+        description="Whether to apply Modifiers during export or not.",
+        default=True
+    )
+
     def execute(self, context):
         with open(self.filepath, 'wb') as output_file:
             save_scene(
                 output_file=output_file,
-                scene=create_scene(generate_triangle_strips=self.generate_triangle_strips))
+                scene=create_scene(
+                    generate_triangle_strips=self.generate_triangle_strips, 
+                    apply_modifiers=self.apply_modifiers))
 
         return {'FINISHED'}
 
