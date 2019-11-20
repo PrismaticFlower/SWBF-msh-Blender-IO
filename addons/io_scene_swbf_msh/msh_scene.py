@@ -44,7 +44,7 @@ class Scene:
     materials: Dict[str, Material] = field(default_factory=dict)
     models: List[Model] = field(default_factory=list)
 
-def create_scene() -> Scene:
+def create_scene(generate_triangle_strips: bool) -> Scene:
     """ Create a msh Scene from the active Blender scene. """
 
     scene = Scene()
@@ -55,7 +55,14 @@ def create_scene() -> Scene:
 
     scene.models = gather_models()
     scene.models = sort_by_parent(scene.models)
-    scene.models = create_models_triangle_strips(scene.models)
+
+    if generate_triangle_strips:
+        scene.models = create_models_triangle_strips(scene.models)
+    else:
+        for model in scene.models:
+            if model.geometry:
+                for segment in model.geometry:
+                    segment.triangle_strips = segment.triangles
 
     if has_multiple_root_models(scene.models):
         scene.models = reparent_model_roots(scene.models)
