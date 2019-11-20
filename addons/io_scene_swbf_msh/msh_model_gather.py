@@ -87,7 +87,8 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
     material_count = max(len(mesh.materials), 1)
 
     segments: List[GeometrySegment] = [GeometrySegment() for i in range(material_count)]
-    vertex_remap: List[Dict[Tuple(int, int), int]] = [dict() for i in range(material_count)]
+    vertex_cache: List[Dict[Tuple[float], int]] = [dict() for i in range(material_count)]
+    vertex_remap: List[Dict[Tuple[int, int], int]] = [dict() for i in range(material_count)]
     polygons: List[Set[int]] = [set() for i in range(material_count)]
 
     if mesh.vertex_colors.active is not None:
@@ -100,13 +101,43 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
     def add_vertex(material_index: int, vertex_index: int, loop_index: int) -> int:
         nonlocal segments, vertex_remap
 
+        vertex_cache_miss_index = -1
         segment = segments[material_index]
+        cache = vertex_cache[material_index]
         remap = vertex_remap[material_index]
 
-        if (vertex_index, loop_index) in remap:
-            return remap[(vertex_index, loop_index)]
+        def get_cache_vertex(vertex_index: int, loop_index: int):
+            yield mesh.vertices[vertex_index].co.x
+            yield mesh.vertices[vertex_index].co.y
+            yield mesh.vertices[vertex_index].co.z
+
+            if mesh.has_custom_normals:
+                yield mesh.loops[loop_index].normal.x
+                yield mesh.loops[loop_index].normal.y
+                yield mesh.loops[loop_index].normal.z
+            else:
+                yield mesh.vertices[vertex_index].normal.x
+                yield mesh.vertices[vertex_index].normal.y
+                yield mesh.vertices[vertex_index].normal.z
+
+            if mesh.uv_layers.active is not None:
+                yield mesh.uv_layers.active.data[loop_index].uv.x
+                yield mesh.uv_layers.active.data[loop_index].uv.y
+
+            if segment.colors is not None:
+                for v in mesh.vertex_colors.active.data[loop_index]:
+                    yield v
+
+        vertex_cache_entry = tuple(get_cache_vertex(vertex_index, loop_index))
+        cached_vertex_index = cache.get(vertex_cache_entry, vertex_cache_miss_index)
+
+        if cached_vertex_index != vertex_cache_miss_index:
+            remap[(vertex_index, loop_index)] = cached_vertex_index
+
+            return cached_vertex_index
 
         new_index: int = len(segment.positions)
+        cache[vertex_cache_entry] = new_index
         remap[(vertex_index, loop_index)] = new_index
 
         segment.positions.append(convert_vector_space(mesh.vertices[vertex_index].co))
