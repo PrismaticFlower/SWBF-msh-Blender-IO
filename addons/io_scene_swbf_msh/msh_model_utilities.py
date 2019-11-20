@@ -9,8 +9,7 @@ def scale_segments(scale: Vector, segments: List[GeometrySegment]):
     """ Scales are positions in the GeometrySegment list. """
 
     for segment in segments:
-        for pos in segment.positions:
-            pos = mul_vec(pos, scale)
+        segment.positions = [mul_vec(pos, scale) for pos in segment.positions]
 
 def get_model_world_matrix(model: Model, models: List[Model]) -> Matrix:
     """ Gets a Blender Matrix for transforming the model into world space. """
