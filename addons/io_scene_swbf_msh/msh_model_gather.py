@@ -31,6 +31,8 @@ def gather_models(apply_modifiers: bool) -> List[Model]:
         else:
             obj = uneval_obj
 
+        check_for_bad_lod_suffix(obj)
+
         local_translation, local_rotation, _ = obj.matrix_local.decompose()
 
         model = Model()
@@ -195,7 +197,17 @@ def get_is_model_hidden(obj: bpy.types.Object) -> bool:
         return True
     if name.startswith("collision"):
         return True
+
     if obj.type not in MESH_OBJECT_TYPES:
+        return True
+
+    if name.endswith("_lod2"):
+        return True
+    if name.endswith("_lod3"):
+        return True
+    if name.endswith("_lowrez"):
+        return True
+    if name.endswith("_lowres"):
         return True
 
     return False
@@ -249,6 +261,19 @@ def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveSh
         return CollisionPrimitiveShape.BOX
 
     raise RuntimeError(f"Object '{obj.name}' has no primitive type specified in it's name!")
+
+def check_for_bad_lod_suffix(obj: bpy.types.Object):
+    """ Checks if the object has an LOD suffix that is known to be ignored by  """
+
+    name = obj.name.lower()
+    failure_message = f"Object '{obj.name}' has unknown LOD suffix at the end of it's name!"
+
+    if name.endswith("_lod1"):
+        raise RuntimeError(failure_message)
+    
+    for i in range(4, 10):
+        if name.endswith(f"_lod{i}"):
+            raise RuntimeError(failure_message)
 
 def convert_vector_space(vec: Vector) -> Vector:
     return Vector((-vec.x, vec.z, vec.y))

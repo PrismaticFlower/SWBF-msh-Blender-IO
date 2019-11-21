@@ -25,6 +25,7 @@
   + [Appendix .msh.option Files](#appendix-mshoption-files)
   + [Appendix .tga.option Files](#appendix-tgaoption-files)
   + [Appendix Rendertypes Table](#appendix-rendertypes-table)
+  + [Appendix LOD Models Visualizations](#appendix-lod-models-visualizations)
 
 ## Exporter
 The currently exporter has pretty straight forward behaviour. It'll grab the current active scene and export it as a .msh file that can be consumed by Zero Editor and modelmunge.
@@ -90,6 +91,11 @@ This error indicates that an object in your scene has "p_" in it's name, indicat
 
 To solve this error consult the [Collision Primitives](#collision-primitives) section and rename the problematic Collision Primitive accordingly. Usually by adding "sphere, "cylinder" or "box" to the name.
 
+#### "RuntimeError: Object '{object name}' has unknown LOD suffix at the end of it's name!"
+This error indicates that an object in your scene ends with what looks like an LOD suffix but that the suffix will not be recognized by modelmunge. This error is purely intended to help catch typos.
+
+To solve this error consult the [LOD Models](#lod-models) section and rename the problematic objects to use the correct LOD suffix.
+
 ### Export Behaviour to Know About
 
 #### Materials for .msh files must be managed through the added UI panel named "SWBF .msh Properties" is added under the Material context.
@@ -127,6 +133,9 @@ Currently the exporter considers the following object types fall in this categor
 If an object with one of the above types has children it is always exported as an empty.
 
 #### Objects whose name starts with "sv_", "p_" or "collision" will be marked as hidden in the .msh file.
+This should be consistent with other .msh exporters.
+
+#### Objects whose name ends with "_lod2", "_lod3", "_lowres" or "_lowrez" will be marked as hidden in the .msh file.
 This should be consistent with other .msh exporters.
 
 #### For completeness poloygons (`NDXL` chunks), triangles (`NDXT`) and triangle strips (`STRP`) are all saved. 
@@ -253,6 +262,23 @@ Finally vehicles can also set a Collision Primitve to be their "critical hit" sp
 ```
 HitLocation = "p_icosphere_crithit 3.0" // The trailing number is the damage multiplier for the critical hit.
 ```
+
+## LOD Models
+Models can have Level of Detail copies of themselves that will be used by the game instead of the full detail mesh when the model is far away from the camera or is almost out of view of the camera. When properly utilitized LOD systems can cut down on the GPU cost of a scene without compromising the end result.
+
+A Blender object can be marked as being part of an LOD model by using one of the follow suffixes. The table is listed in order of the intended detail level of each LOD model.
+
+| Suffix    | .model LOD Result                                   |
+|:--------- |:---------------------------------------------------:|
+| No Suffix | LOD0 (Full Detail)                                  |
+| _lod2     | LOD1                                                |
+| _lod3     | LOD2                                                |
+| _lowres   | LOWD (Low detail mesh for the Far Scene.)           |
+| _lowrez   | Alias for _lowres                                   |
+
+Objects with the same suffix (say "door_lod2" and "frame_lod2") will become part of the same LOD model.
+
+See [Appendix LOD Models Visualizations](#appendix-lod-models-visualizations) to get a quick idea of how the game selects LOD models by default.
 
 ## Materials
 Since Blender's sophisticated materials are a poor fit for what .msh files can represent the addon defines
@@ -488,4 +514,20 @@ Distortion maps control how Refractive materials distort the scene behind them. 
 | Normalmapped Envmapped (SWBF2)       | Detail Map Tiling U      | Detail Map Tiling V | 26            | 1A                | Diffuse Map | Normal Map     | Detail Map | Environment Map |
 | Normalmapped (SWBF2)                 | Detail Map Tiling U      | Detail Map Tiling V | 27            | 1B                | Diffuse Map | Normal Map     | Detail Map |                 |
 | Normalmapped Tiled Envmapped (SWBF2) | Normal Map Tiling U      | Normal Map Tiling V | 29            | 1D                | Diffuse Map | Normal Map     | Detail Map | Environment Map |
+
+### Appendix LOD Models Visualizations
+
+Below is a couple of screenshots showing how the game uses LOD models.
+
+- Red Spheres are LOD0 (Full Detail)
+- Green Spheres are LOD1
+- Blue Spheres are LOD2
+- Orange Spheres are LOWD (Low Detail/Far Scene models)
+
+All spheres were ico spheres with each LOD model have one less subdivision than the last.
+
+The map's near scene range values set to `NearSceneRange(90.0, 400.0, 120.0, 600.0);`.
+
+![LOD Models Visualized from a hill.](images/lod_example_distances_0_hill_view.jpg)
+
 
