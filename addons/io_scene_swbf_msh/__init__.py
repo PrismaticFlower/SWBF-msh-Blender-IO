@@ -1,13 +1,13 @@
 bl_info = {
     'name': 'SWBF .msh export',
-    'author': '',
+    'author': 'SleepKiller',
     "version": (0, 1, 0),
     'blender': (2, 80, 0),
     'location': 'File > Import-Export',
     'description': 'Export as SWBF .msh file',
     'warning': '',
-    'wiki_url': "",
-    'tracker_url': "",
+    'wiki_url': "https://github.com/SleepKiller/SWBF-msh-Blender-Export/blob/master/docs/reference_manual.md",
+    'tracker_url': "https://github.com/SleepKiller/SWBF-msh-Blender-Export/issues",
     'support': 'COMMUNITY',
     'category': 'Import-Export'
 }
