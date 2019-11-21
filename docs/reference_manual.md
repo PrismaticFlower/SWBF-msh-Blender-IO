@@ -12,6 +12,8 @@
   + [Collision Meshes](#collision-meshes)
   + [Collision Flags](#collision-flags)
   + [Vehicles and Collision](#vehicles-and-collision)
+- [Hardpoints](#hardpoints)
+- [LOD Models](#lod-models)
 - [Materials](#materials)
   + [Materials.Rendertype](#materialsrendertype)
   + [Materials.Transparency Flags](#materialstransparency-flags)
@@ -263,6 +265,11 @@ Finally vehicles can also set a Collision Primitve to be their "critical hit" sp
 HitLocation = "p_icosphere_crithit 3.0" // The trailing number is the damage multiplier for the critical hit.
 ```
 
+## Hardpoints
+Any [Empty](https://docs.blender.org/manual/en/latest/modeling/empties.html) object that begins with "hp_" is treated as a hardpoint by modelmunge. Hardpoints are used as reference points for a variety of things, like attaching a particle effect to a model or setting the seat location of a vehicle to name a couple.
+
+Other empties/objects can be hardpoints but modelmunge must be explicitly told to keep them, see "-keep"/"-keepall" in [Appendix .msh.option Files](#appendix-mshoption-files).
+
 ## LOD Models
 Models can have Level of Detail copies of themselves that will be used by the game instead of the full detail mesh when the model is far away from the camera or is almost out of view of the camera. When properly utilitized LOD systems can cut down on the GPU cost of a scene without compromising the end result.
 
@@ -490,10 +497,56 @@ Distortion maps control how Refractive materials distort the scene behind them. 
 > TODO: Write this section (with layout reference).
 
 ### Appendix .msh.option Files
+.msh files aren't actually the model format used by the game engine. In order to get them into the game engine's format they're ran through modelmunge which exports it into the game engine's format. 
 
-> TODO: Should this section exist?
+Some of modelmunge's behaviour when exporting a .model file can be customized by creating a .msh.option file in the same folder as the .msh file. If you had "fountain.msh", it's .msh.option file would be named "fountain.msh.option".
 
-> TODO: Write this section.
+.msh.option files are just plaintext ASCII files containing arguments for modelmunge for that .msh file. The contents of an example one is below.
+
+```
+-vertexlighting
+-keep water_emitter0 water_emitter1 water_emitter2
+```
+
+Below is a list of the most relevant .msh.option arguments. There are more than this but they either don't work (-noprojectionlights), are dangerous to use and can cause crashing ingame (-maxbones) or unclear why you'd ever want to use them (-donotmergeskins).
+
+#### -keep
+- Usage Example: `-keep aimer_turret turret_barrel`
+
+Takes a list of object names in the .msh file and keeps those objects as hardpoints.
+
+#### -keepall
+- Usage Example: `-keepall`
+
+Keep all named objects in the .msh file as hardpoints.
+
+#### -keepmaterial
+- Usage Example: `-keepmaterial override_texture`
+
+By default material names are not saved in .model files. And meshes referencing differently named materials but with identical names may be merged together to boost performance.
+
+By specifying "-keepmaterial" for a material modelmunge is instructed to keep the name of a material around and to not merge meshes using the material with others that aren't.
+
+This is used with the "OverrideTexture", "OverrideTexture2" and "WheelTexture" .odf properties.
+
+#### -scale
+- Usage Example: `-scale 2.0`
+
+Takes a scale and applies it uniformly to the .msh file as it is exported. Minimally useful.
+
+#### -vertexlighting
+- Usage Example: `-vertexlighting`
+
+Marks the .msh file as being vertex lit. 
+
+Any vertex colours in the .msh file will be used as static diffuse lighting and any lights in the game marked as "Static" will not affect any mesh in the .msh file that has vertex colours.
+
+#### -nocollision
+- Usage Example: `-nocollision`
+
+If the .msh file has no Collision then prevents automatic creation of a Collision Mesh. 
+
+Else prevents usage of any Collision Mesh in the .msh. Has no affect on Collision Primitives.
 
 ### Appendix .tga.option Files
 
