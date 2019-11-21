@@ -130,7 +130,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
                 yield mesh.uv_layers.active.data[loop_index].uv.y
 
             if segment.colors is not None:
-                for v in mesh.vertex_colors.active.data[loop_index]:
+                for v in mesh.vertex_colors.active.data[loop_index].color:
                     yield v
 
         vertex_cache_entry = tuple(get_cache_vertex(vertex_index, loop_index))
@@ -158,7 +158,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
             segment.texcoords.append(mesh.uv_layers.active.data[loop_index].uv.copy())
 
         if segment.colors is not None:
-            segment.colors.append([v for v in mesh.vertex_colors.active.data[loop_index].color])
+            segment.colors.append(list(mesh.vertex_colors.active.data[loop_index].color))
 
         return new_index
 
