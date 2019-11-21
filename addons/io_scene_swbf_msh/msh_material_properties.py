@@ -191,6 +191,9 @@ class MaterialPropertiesPanel(bpy.types.Panel):
     bl_context = "material"
 
     def draw(self, context):
+        if context.material is None:
+            return
+
         layout = self.layout
 
         material_props = context.material.swbf_msh
