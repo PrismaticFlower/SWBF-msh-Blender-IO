@@ -459,6 +459,7 @@ Sets the strength of the material's diffuse at the bottom of the "blink".
 Speed of blinking, higher is faster.
 
 ### Materials.Texture Maps
+All textures should be the names or paths to .tga files. SWBF's toolchain does not support .tga files with RLE (Run Length Encoding) compression or paletted .tga files. They should either be 8-bit greyscale, 24-bit RGB or 32-bit RGBA.
 
 #### Materials.Texture Maps.Diffuse Map
 The basic diffuse map for the material. The alpha channel is either the Transparency Map, Glow Map or Gloss Map, depending on the selected rendertype and flags.
