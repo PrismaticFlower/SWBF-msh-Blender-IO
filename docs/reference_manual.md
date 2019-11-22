@@ -464,6 +464,8 @@ All textures should be the names or paths to .tga files. SWBF's toolchain does n
 #### Materials.Texture Maps.Diffuse Map
 The basic diffuse map for the material. The alpha channel is either the Transparency Map, Glow Map or Gloss Map, depending on the selected rendertype and flags.
 
+Textures are not automatically copied over to the .msh file's folder on export at this time.
+
 #### Materials.Texture Maps.Detail Map
 Detail maps allow you to add in 'detail' to the Diffuse Map at runtime. 
 
