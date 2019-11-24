@@ -373,7 +373,7 @@ Can optionally have a Detail Map. Tiling for the detail map can specified with D
 
 This rendertype also enables per-pixel lighting.
 
-#### Materials.Rendertype.Normalmapped Envmapped (SWBF2)
+#### Materials.Rendertype.Normalmapped Tiled Envmapped (SWBF2)
 Enables the use of a Normal Map with the material. Tiling for the normal map can be controlled with Normal Map Tiling U and Normal Map Tiling V
 
 Uses an Environment Map to show reflections on the model. Useful for anything you want to look reflective or 
