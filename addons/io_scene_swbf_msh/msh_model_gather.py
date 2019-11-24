@@ -103,7 +103,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
     for segment, material in zip(segments, mesh.materials):
         segment.material_name = material.name
 
-    def add_vertex(material_index: int, vertex_index: int, loop_index: int) -> int:
+    def add_vertex(material_index: int, vertex_index: int, loop_index: int, use_smooth_normal: bool, face_normal: Vector) -> int:
         nonlocal segments, vertex_remap
 
         vertex_cache_miss_index = -1
@@ -111,19 +111,24 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
         cache = vertex_cache[material_index]
         remap = vertex_remap[material_index]
 
-        def get_cache_vertex(vertex_index: int, loop_index: int):
+        vertex_normal: Vector
+
+        if use_smooth_normal or mesh.use_auto_smooth:
+            if mesh.has_custom_normals:
+                vertex_normal = mesh.loops[loop_index].normal
+            else:
+                vertex_normal = mesh.vertices[vertex_index].normal
+        else:
+            vertex_normal = face_normal
+
+        def get_cache_vertex():
             yield mesh.vertices[vertex_index].co.x
             yield mesh.vertices[vertex_index].co.y
             yield mesh.vertices[vertex_index].co.z
 
-            if mesh.has_custom_normals:
-                yield mesh.loops[loop_index].normal.x
-                yield mesh.loops[loop_index].normal.y
-                yield mesh.loops[loop_index].normal.z
-            else:
-                yield mesh.vertices[vertex_index].normal.x
-                yield mesh.vertices[vertex_index].normal.y
-                yield mesh.vertices[vertex_index].normal.z
+            yield vertex_normal.x
+            yield vertex_normal.y
+            yield vertex_normal.z
 
             if mesh.uv_layers.active is not None:
                 yield mesh.uv_layers.active.data[loop_index].uv.x
@@ -133,7 +138,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
                 for v in mesh.vertex_colors.active.data[loop_index].color:
                     yield v
 
-        vertex_cache_entry = tuple(get_cache_vertex(vertex_index, loop_index))
+        vertex_cache_entry = tuple(get_cache_vertex())
         cached_vertex_index = cache.get(vertex_cache_entry, vertex_cache_miss_index)
 
         if cached_vertex_index != vertex_cache_miss_index:
@@ -146,11 +151,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
         remap[(vertex_index, loop_index)] = new_index
 
         segment.positions.append(convert_vector_space(mesh.vertices[vertex_index].co))
-
-        if mesh.has_custom_normals:
-            segment.normals.append(convert_vector_space(mesh.loops[loop_index].normal))
-        else:
-            segment.normals.append(convert_vector_space(mesh.vertices[vertex_index].normal))
+        segment.normals.append(convert_vector_space(vertex_normal))
 
         if mesh.uv_layers.active is None:
             segment.texcoords.append(Vector((0.0, 0.0)))
@@ -165,9 +166,9 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
     for tri in mesh.loop_triangles:
         polygons[tri.material_index].add(tri.polygon_index)
         segments[tri.material_index].triangles.append([
-            add_vertex(tri.material_index, tri.vertices[0], tri.loops[0]),
-            add_vertex(tri.material_index, tri.vertices[1], tri.loops[1]),
-            add_vertex(tri.material_index, tri.vertices[2], tri.loops[2])])
+            add_vertex(tri.material_index, tri.vertices[0], tri.loops[0], tri.use_smooth, tri.normal),
+            add_vertex(tri.material_index, tri.vertices[1], tri.loops[1], tri.use_smooth, tri.normal),
+            add_vertex(tri.material_index, tri.vertices[2], tri.loops[2], tri.use_smooth, tri.normal)])
 
     for segment, remap, polys in zip(segments, vertex_remap, polygons):
         for poly_index in polys:
