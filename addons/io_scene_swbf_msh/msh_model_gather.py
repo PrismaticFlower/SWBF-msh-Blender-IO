@@ -3,6 +3,7 @@
 
 import bpy
 import math
+from enum import Enum
 from typing import List, Set, Dict, Tuple
 from itertools import zip_longest
 from .msh_model import *
@@ -13,7 +14,7 @@ SKIPPED_OBJECT_TYPES = {"LATTICE", "CAMERA", "LIGHT", "SPEAKER", "LIGHT_PROBE"}
 MESH_OBJECT_TYPES = {"MESH", "CURVE", "SURFACE", "META", "FONT", "GPENCIL"}
 MAX_MSH_VERTEX_COUNT = 32767
 
-def gather_models(apply_modifiers: bool) -> List[Model]:
+def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
     """ Gathers the Blender objects from the current scene and returns them as a list of
         Model objects. """
 
@@ -22,7 +23,7 @@ def gather_models(apply_modifiers: bool) -> List[Model]:
 
     models_list: List[Model] = []
 
-    for uneval_obj in bpy.context.scene.objects:
+    for uneval_obj in select_objects(export_target):
         if uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents:
             continue
 
@@ -275,6 +276,49 @@ def check_for_bad_lod_suffix(obj: bpy.types.Object):
     for i in range(4, 10):
         if name.endswith(f"_lod{i}"):
             raise RuntimeError(failure_message)
+
+def select_objects(export_target: str) -> List[bpy.types.Object]:
+    """ Returns a list of objects to export. """
+
+    if export_target == "SCENE" or not export_target in {"SELECTED", "SELECTED_WITH_CHILDREN"}:
+        return list(bpy.context.scene.objects)
+
+    objects = list(bpy.context.selected_objects)
+    added = {obj.name for obj in objects}
+
+    if export_target == "SELECTED_WITH_CHILDREN":
+        children = []
+
+        def add_children(parent):
+            nonlocal children
+            nonlocal added
+
+            for obj in bpy.context.scene.objects:
+                if obj.parent == parent and obj.name not in added:
+                    children.append(obj)
+                    added.add(obj.name)
+
+                    add_children(obj)
+
+        
+        for obj in objects:
+            add_children(obj)
+
+        objects = objects + children
+
+    parents = []
+
+    for obj in objects:
+        parent = obj.parent
+
+        while parent is not None:
+            if parent.name not in added:
+                parents.append(parent)
+                added.add(parent.name)
+
+            parent = parent.parent
+
+    return objects + parents
 
 def convert_vector_space(vec: Vector) -> Vector:
     return Vector((-vec.x, vec.z, vec.y))

@@ -45,6 +45,16 @@ In order to improve runtime performance and reduce munged model size you are **s
 
 For very complex scenes with meshes that have tens of thousands (or more) faces Blender may freeze up for a couple minutes while triangle strips are generated. Either minimize it and do something else on your PC while you wait and it'll eventually finish.
 
+#### Export Target
+Controls what to export from Blender.
+
+|                        |                                                                        |
+| ---------------------- | ---------------------------------------------------------------------- |
+| Scene                  | Export the current active scene.                                       |
+| Selected               | Export the currently selected objects and their parents.               |
+| Selected with Children | Export the currently selected objects with their children and parents. |
+
+
 #### Apply Modifiers
 Whether to apply [Modifiers](https://docs.blender.org/manual/en/latest/modeling/modifiers/index.html) during export or not.
 

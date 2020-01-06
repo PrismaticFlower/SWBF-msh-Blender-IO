@@ -1,7 +1,7 @@
 bl_info = {
     'name': 'SWBF .msh export',
     'author': 'SleepKiller',
-    "version": (0, 1, 0),
+    "version": (0, 2, 0),
     'blender': (2, 80, 0),
     'location': 'File > Import-Export',
     'description': 'Export as SWBF .msh file',
@@ -82,6 +82,15 @@ class ExportMSH(Operator, ExportHelper):
         default=False
     )
 
+    export_target: EnumProperty(name="Export Target",
+                                description="What to export.",
+                                items=(
+                                    ('SCENE', "Scene", "Export the current active scene."),
+                                    ('SELECTED', "Selected", "Export the currently selected objects and their parents."),
+                                    ('SELECTED_WITH_CHILDREN', "Selected with Children", "Export the currently selected objects with their children and parents.")
+                                ),
+                                default='SCENE')
+
     apply_modifiers: BoolProperty(
         name="Apply Modifiers",
         description="Whether to apply Modifiers during export or not.",
@@ -94,7 +103,8 @@ class ExportMSH(Operator, ExportHelper):
                 output_file=output_file,
                 scene=create_scene(
                     generate_triangle_strips=self.generate_triangle_strips, 
-                    apply_modifiers=self.apply_modifiers))
+                    apply_modifiers=self.apply_modifiers,
+                    export_target=self.export_target))
 
         return {'FINISHED'}
 

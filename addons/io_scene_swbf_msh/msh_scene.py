@@ -44,7 +44,7 @@ class Scene:
     materials: Dict[str, Material] = field(default_factory=dict)
     models: List[Model] = field(default_factory=list)
 
-def create_scene(generate_triangle_strips: bool, apply_modifiers: bool) -> Scene:
+def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_target: str) -> Scene:
     """ Create a msh Scene from the active Blender scene. """
 
     scene = Scene()
@@ -53,7 +53,7 @@ def create_scene(generate_triangle_strips: bool, apply_modifiers: bool) -> Scene
 
     scene.materials = gather_materials()
 
-    scene.models = gather_models(apply_modifiers=apply_modifiers)
+    scene.models = gather_models(apply_modifiers=apply_modifiers, export_target=export_target)
     scene.models = sort_by_parent(scene.models)
 
     if generate_triangle_strips:
