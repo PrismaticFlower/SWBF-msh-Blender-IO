@@ -536,9 +536,7 @@ Keep all named objects in the .msh file as hardpoints.
 #### -keepmaterial
 - Usage Example: `-keepmaterial override_texture`
 
-By default material names are not saved in .model files. And meshes referencing differently named materials but with identical names may be merged together to boost performance.
-
-By specifying "-keepmaterial" for a material modelmunge is instructed to keep the name of a material around and to not merge meshes using the material with others that aren't.
+Prevents the named object being marged with other objects by modelmunge and gives the object's .model material the same name as the object. 
 
 This is used with the "OverrideTexture", "OverrideTexture2" and "WheelTexture" .odf properties.
 
