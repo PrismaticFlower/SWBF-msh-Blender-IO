@@ -23,8 +23,8 @@ def min_vec(l: Vector, r: Vector) -> Vector:
 def pack_color(color) -> int:
     packed = 0
 
-    packed |= (int(color[0] * 255.0 + 0.5) << 8)
-    packed |= (int(color[1] * 255.0 + 0.5) << 16)
+    packed |= (int(color[0] * 255.0 + 0.5) << 16)
+    packed |= (int(color[1] * 255.0 + 0.5) << 8)
     packed |= (int(color[2] * 255.0 + 0.5))
     packed |= (int(color[3] * 255.0 + 0.5) << 24)
 
