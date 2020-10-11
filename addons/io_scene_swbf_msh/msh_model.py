@@ -2,7 +2,7 @@
     saved to a .msh file. """
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Dict
 from enum import Enum
 from mathutils import Vector, Quaternion
 
@@ -65,3 +65,12 @@ class Model:
 
     geometry: List[GeometrySegment] = None
     collisionprimitive: CollisionPrimitive = None
+
+@dataclass
+class Animation:
+    """ Class representing 'CYCL' + 'KFR3' sections in a .msh file """
+
+    name: str = "open"
+    anim_type: str = "HardSkinned"
+    bone_transforms: Dict[str, List[ModelTransform]] = field(default_factory=dict)
+    

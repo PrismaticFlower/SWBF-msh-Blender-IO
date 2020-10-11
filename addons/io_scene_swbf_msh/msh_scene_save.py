@@ -8,6 +8,8 @@ from .msh_material import *
 from .msh_writer import Writer
 from .msh_utilities import *
 
+from .crc import *
+
 def save_scene(output_file, scene: Scene):
     """ Saves scene to the supplied file. """
 
@@ -26,6 +28,10 @@ def save_scene(output_file, scene: Scene):
                 with msh2.create_child("MODL") as modl:
                     _write_modl(modl, model, index, material_index)
 
+        with hedr.create_child("ANM2") as anm2: #simple for now
+            for anim in scene.anims:
+                _write_anm2(anm2, anim)
+
         with hedr.create_child("CL1L"):
             pass
 
@@ -34,8 +40,8 @@ def _write_sinf(sinf: Writer, scene: Scene):
         name.write_string(scene.name)
 
     with sinf.create_child("FRAM") as fram:
-        fram.write_i32(0, 1)
-        fram.write_f32(29.97003)
+        fram.write_i32(0, 20) #test values
+        fram.write_f32(10.0) #test values
 
     with sinf.create_child("BBOX") as bbox:
         aabb = create_scene_aabb(scene)
@@ -189,3 +195,50 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
 
             for index in islice(strip, 2, len(strip)):
                 strp.write_u16(index)
+
+
+def _write_anm2(anm2: Writer, anim: Animation):
+
+    with anm2.create_child("CYCL") as cycl:
+        
+        cycl.write_u32(1)
+        cycl.write_string(anim.name)
+        
+        for _ in range(64 - (len(anim.name) + 1)):
+            cycl.write_u8(0)
+        
+        cycl.write_f32(10.0) #test framerate
+        cycl.write_u32(0) #what does play style refer to?
+        cycl.write_u32(0, 20) #first frame indices
+
+
+    with anm2.create_child("KFR3") as kfr3:
+        
+        kfr3.write_u32(len(anim.bone_transforms.keys()))
+
+        for boneName in anim.bone_transforms.keys():
+            kfr3.write_u32(crc(boneName))
+            kfr3.write_u32(0) #what is keyframe type?
+
+            kfr3.write_u32(21, 21) #basic testing
+
+            print(boneName)
+
+            for i, xform in enumerate(anim.bone_transforms[boneName]):
+                kfr3.write_u32(i)
+                kfr3.write_f32(xform.translation.x, xform.translation.y, xform.translation.z)
+
+                print(xform.translation)
+
+            for i, xform in enumerate(anim.bone_transforms[boneName]):
+                kfr3.write_u32(i)
+                kfr3.write_f32(xform.rotation.x, xform.rotation.y, xform.rotation.z, xform.rotation.w)
+
+
+
+
+
+
+
+
+

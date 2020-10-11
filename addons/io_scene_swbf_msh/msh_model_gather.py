@@ -10,7 +10,7 @@ from .msh_model import *
 from .msh_model_utilities import *
 from .msh_utilities import *
 
-SKIPPED_OBJECT_TYPES = {"LATTICE", "CAMERA", "LIGHT", "SPEAKER", "LIGHT_PROBE"}
+SKIPPED_OBJECT_TYPES = {"LATTICE", "CAMERA", "LIGHT", "SPEAKER", "LIGHT_PROBE", "ARMATURE"}
 MESH_OBJECT_TYPES = {"MESH", "CURVE", "SURFACE", "META", "FONT", "GPENCIL"}
 MAX_MSH_VERTEX_COUNT = 32767
 
@@ -44,7 +44,10 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
         model.transform.translation = convert_vector_space(local_translation)
 
         if obj.parent is not None:
-            model.parent = obj.parent.name
+            if obj.parent.type == "Armature":
+                model.parent = obj.parent.parent.name
+            else:
+                model.parent = obj.parent.name
 
         if obj.type in MESH_OBJECT_TYPES:
             mesh = obj.to_mesh()
