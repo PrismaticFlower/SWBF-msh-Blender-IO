@@ -34,7 +34,7 @@ class GeometrySegment:
     material_name: str = ""
 
     positions: List[Vector] = field(default_factory=list)
-    weights: List[Tuple[int, float]] = field(default_factory=List)
+    weights: List[Tuple[int, float]] = None
     normals: List[Vector] = field(default_factory=list)
     colors: List[List[float]] = None
     texcoords: List[Vector] = field(default_factory=list)

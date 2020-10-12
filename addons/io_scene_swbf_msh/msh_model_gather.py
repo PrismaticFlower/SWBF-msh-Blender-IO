@@ -22,6 +22,11 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
     parents = create_parents_set()
 
     models_list: List[Model] = []
+    model_indices: Dict[str, int] = {}
+
+    for i, uneval_obj in enumerate(select_objects(export_target)):
+        if not (uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents):
+            model_indices[uneval_obj.name] = i
 
     for uneval_obj in select_objects(export_target):
         if uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents:
@@ -49,9 +54,15 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
             else:
                 model.parent = obj.parent.name
 
+
         if obj.type in MESH_OBJECT_TYPES:
             mesh = obj.to_mesh()
-            model.geometry = create_mesh_geometry(mesh)
+
+            vgroups_to_indices = {}
+            for i, vgroup in enumerate(obj.vertex_groups):
+            	vgroups_to_indices[i] = model_indices[vgroup.name]
+
+            model.geometry = create_mesh_geometry(mesh, vgroups_to_indices)
             obj.to_mesh_clear()
 
             _, _, world_scale = obj.matrix_world.decompose()
@@ -83,7 +94,7 @@ def create_parents_set() -> Set[str]:
 
     return parents
 
-def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
+def create_mesh_geometry(mesh: bpy.types.Mesh, vgrps_to_indices : Dict[int, int]) -> List[GeometrySegment]:
     """ Creates a list of GeometrySegment objects from a Blender mesh.
         Does NOT create triangle strips in the GeometrySegment however. """
 
@@ -103,6 +114,10 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
     if mesh.vertex_colors.active is not None:
         for segment in segments:
             segment.colors = []
+
+    if vgrps_to_indices:
+    	for segment in segments:
+    		segment.weights = []
 
     for segment, material in zip(segments, mesh.materials):
         segment.material_name = material.name
@@ -157,6 +172,14 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
         segment.positions.append(convert_vector_space(mesh.vertices[vertex_index].co))
         segment.normals.append(convert_vector_space(vertex_normal))
 
+        if vgrps_to_indices is not None:
+        	for i,grp_el in mesh.vertices[vertex_index].groups:
+        		segment.weights.append(tuple(vgrps_to_indices[grp_el.group], grp_el.weight))
+        		if i > 3:
+        			break
+        	while (i < 3):
+        		segment.weights.append(tuple(0,0.0))
+
         if mesh.uv_layers.active is None:
             segment.texcoords.append(Vector((0.0, 0.0)))
         else:
@@ -185,7 +208,8 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
 
 def get_model_type(obj: bpy.types.Object) -> ModelType:
     """ Get the ModelType for a Blender object. """
-    # TODO: Skinning support, etc
+    if obj.parent_type == "ARMATURE":
+    	return ModelType.SKIN
 
     if obj.type in MESH_OBJECT_TYPES:
         return ModelType.STATIC

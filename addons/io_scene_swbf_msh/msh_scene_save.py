@@ -129,6 +129,9 @@ def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str
             for segment in model.geometry:
                 with geom.create_child("SEGM") as segm:
                     _write_segm(segm, segment, material_index)
+        if model.type = ModelType.SKIN:
+        	with modl.create_child("ENVL") as envl:
+
 
     if model.collisionprimitive is not None:
         with modl.create_child("SWCI") as swci:
