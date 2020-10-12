@@ -2,7 +2,7 @@
     saved to a .msh file. """
 
 from dataclasses import dataclass, field
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from enum import Enum
 from mathutils import Vector, Quaternion
 
@@ -34,6 +34,7 @@ class GeometrySegment:
     material_name: str = ""
 
     positions: List[Vector] = field(default_factory=list)
+    weights: List[Tuple[int, float]] = field(default_factory=List)
     normals: List[Vector] = field(default_factory=list)
     colors: List[List[float]] = None
     texcoords: List[Vector] = field(default_factory=list)

@@ -222,13 +222,9 @@ def _write_anm2(anm2: Writer, anim: Animation):
 
             kfr3.write_u32(21, 21) #basic testing
 
-            print(boneName)
-
             for i, xform in enumerate(anim.bone_transforms[boneName]):
                 kfr3.write_u32(i)
                 kfr3.write_f32(xform.translation.x, xform.translation.y, xform.translation.z)
-
-                print(xform.translation)
 
             for i, xform in enumerate(anim.bone_transforms[boneName]):
                 kfr3.write_u32(i)

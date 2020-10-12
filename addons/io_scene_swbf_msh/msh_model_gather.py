@@ -44,7 +44,7 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
         model.transform.translation = convert_vector_space(local_translation)
 
         if obj.parent is not None:
-            if obj.parent.type == "Armature":
+            if obj.parent.type == "ARMATURE":
                 model.parent = obj.parent.parent.name
             else:
                 model.parent = obj.parent.name
@@ -166,6 +166,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
             segment.colors.append(list(mesh.vertex_colors.active.data[loop_index].color))
 
         return new_index
+
 
     for tri in mesh.loop_triangles:
         polygons[tri.material_index].add(tri.polygon_index)
