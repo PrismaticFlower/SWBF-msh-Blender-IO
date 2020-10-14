@@ -40,14 +40,14 @@ def gather_animdata(armature: bpy.types.Armature) -> List[Animation]:
 
             xform.translation = Vector((vt.x * -1.0, vt.y, vt.z))
             xform.rotation = convert_rotation_space(bone.rotation_quaternion)
-			
-			'''
+            
+            '''
             xform.translation = bone.location
             xform.rotation = bone.rotation_quaternion
 
             anim_data.bone_transforms[bone.name].append(xform)
-			'''
-			
+            '''
+            
     return [anim_data]
 
 

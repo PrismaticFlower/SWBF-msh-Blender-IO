@@ -34,11 +34,11 @@ class GeometrySegment:
     material_name: str = ""
 
     positions: List[Vector] = field(default_factory=list)
-    weights: List[Tuple[int, float]] = None
     normals: List[Vector] = field(default_factory=list)
     colors: List[List[float]] = None
     texcoords: List[Vector] = field(default_factory=list)
-    # TODO: Skin support.
+
+    weights: List[Tuple[int, float]] = None
 
     polygons: List[List[int]] = field(default_factory=list)
     triangles: List[List[int]] = field(default_factory=list)
@@ -67,11 +67,12 @@ class Model:
     geometry: List[GeometrySegment] = None
     collisionprimitive: CollisionPrimitive = None
 
+    vgroups_to_modelnames_map : Dict[int, str] = None
+
 @dataclass
 class Animation:
     """ Class representing 'CYCL' + 'KFR3' sections in a .msh file """
 
     name: str = "open"
-    anim_type: str = "HardSkinned"
     bone_transforms: Dict[str, List[ModelTransform]] = field(default_factory=dict)
     
