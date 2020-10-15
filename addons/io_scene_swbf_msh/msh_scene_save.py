@@ -28,9 +28,9 @@ def save_scene(output_file, scene: Scene):
                 with msh2.create_child("MODL") as modl:
                     _write_modl(modl, model, index, material_index, scene)
 
-        #with hedr.create_child("ANM2") as anm2: #simple for now
-        #    for anim in scene.anims:
-        #        _write_anm2(anm2, anim)
+        with hedr.create_child("ANM2") as anm2: #simple for now
+            for anim in scene.anims:
+                _write_anm2(anm2, anim)
 
         with hedr.create_child("CL1L"):
             pass
@@ -129,12 +129,13 @@ def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str
             for segment in model.geometry:
                 with geom.create_child("SEGM") as segm:
                     _write_segm(segm, segment, material_index)
-        
+        '''
         if model.model_type == ModelType.SKIN:
             with modl.create_child("ENVL") as envl:
                 envl.write_u32(len(scene.models))
                 for i in range(len(scene.models)):
                     envl.write_u32(i)
+        '''
 
     if model.collisionprimitive is not None:
         with modl.create_child("SWCI") as swci:
@@ -165,12 +166,14 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
         for normal in segment.normals:
             nrml.write_f32(normal.x, normal.y, normal.z)
 
+    '''
     if segment.weights is not None:
         with segm.create_child("WGHT") as wght:
             wght.write_u32(len(segment.weights) / 4)
             for weight in segment.weights:
                 wght.write_u32(weight[0])
                 wght.write_f32(weight[1])
+    '''
 
     if segment.colors is not None:
         with segm.create_child("CLRL") as clrl:
@@ -217,7 +220,7 @@ def _write_anm2(anm2: Writer, anim: Animation):
         cycl.write_u32(1)
         cycl.write_string(anim.name)
         
-        for _ in range(63 - len(anim.name)):
+        for _ in range(64 - (len(anim.name) + 1)):
             cycl.write_u8(0)
         
         cycl.write_f32(10.0) #test framerate

@@ -33,20 +33,17 @@ def gather_animdata(armature: bpy.types.Armature) -> List[Animation]:
         anim_data.bone_transforms[armature.parent.name].append(ModelTransform()) #for testing
 
         for bone in armature.pose.bones:
+
             xform = ModelTransform()
-
-            
-            vt = convert_vector_space(bone.location);
-
-            xform.translation = Vector((vt.x * -1.0, vt.y, vt.z))
+            xform.translation = convert_vector_space(bone.location)
+            xform.translation.x *= -1.0
             xform.rotation = convert_rotation_space(bone.rotation_quaternion)
-            
-            '''
-            xform.translation = bone.location
-            xform.rotation = bone.rotation_quaternion
-
+            xform.rotation.x *= -1.0
+            xform.rotation.y *= -1.0
+            xform.rotation.z *= -1.0
+            		
             anim_data.bone_transforms[bone.name].append(xform)
-            '''
+            
             
     return [anim_data]
 

@@ -33,6 +33,9 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
         else:
             obj = uneval_obj
 
+        if uneval_obj.type == "ARMATURE":
+            continue
+
         check_for_bad_lod_suffix(obj)
 
         local_translation, local_rotation, _ = obj.matrix_local.decompose()
@@ -44,8 +47,13 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
         model.transform.rotation = convert_rotation_space(local_rotation)
         model.transform.translation = convert_vector_space(local_translation)
 
+        print("Adding model: " + model.name)
+
         if obj.parent is not None:
             if obj.parent.type == "ARMATURE":
+
+                model.parent = "DummyRoot"
+
                 skeleton = obj.parent
 
                 parent_bone_name = obj.parent_bone
@@ -80,17 +88,19 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
 
         models_list.append(model)
 
-
+    
     for bone in skeleton.data.bones:
 
         model = Model()
         model.name = bone.name
-        model.model_type = ModelType.NULL
+        model.model_type = ModelType.BONE
         model.hidden = False
 
         local_translation, local_rotation, _ = bone.matrix_local.decompose()
         model.transform.rotation = convert_rotation_space(local_rotation)
         model.transform.translation = convert_vector_space(local_translation)
+
+        print("Adding bone: " + model.name)
 
         parent_name = bone.parent
         if parent_name is not None:
@@ -102,6 +112,8 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
                 model.parent = None        
 
         models_list.append(model)
+    
+    
 
 
     return models_list
@@ -231,7 +243,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, is_skinned : bool) -> List[Geomet
 def get_model_type(obj: bpy.types.Object) -> ModelType:
     """ Get the ModelType for a Blender object. """
     if obj.parent_type == "ARMATURE":
-    	return ModelType.SKIN
+        return ModelType.SKIN
 
     if obj.type in MESH_OBJECT_TYPES:
         return ModelType.STATIC
