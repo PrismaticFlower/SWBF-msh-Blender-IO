@@ -71,21 +71,6 @@ def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_t
         scene.models = reparent_model_roots(scene.models)
 
 
-    #now that we've collected all models, we should remap WGHT indices...
-    '''
-    names_to_indices = {}
-    for i,model in enumerate(scene.models):
-        names_to_indices[model.name] = i;
-
-    for model in scene.models:
-        if model.model_type == ModelType.SKIN:
-            for segment in model.geometry:
-                for i in range(len(segment.weights)):
-                    vgroup_index = segment.weights[i][0]
-                    segment.weights[i][0] = names_to_indices[model.vgroups_to_modelnames_map[vgroup_index]]
-    '''
-
-
     scene.materials = remove_unused_materials(scene.materials, scene.models)
 
     scene.anims = gather_animdata(bpy.context.scene.objects["Armature"])
