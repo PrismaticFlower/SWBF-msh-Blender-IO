@@ -114,3 +114,26 @@ def is_model_name_unused(name: str, models: List[Model]) -> bool:
             return False
 
     return True
+
+
+def convert_vector_space(vec: Vector) -> Vector:
+    return Vector((-vec.x, vec.z, vec.y))
+
+def convert_scale_space(vec: Vector) -> Vector:
+    return Vector(vec.xzy)
+
+def convert_rotation_space(quat: Quaternion) -> Quaternion:
+    return Quaternion((-quat.w, quat.x, -quat.z, -quat.y))
+
+
+def to_skeleton_vector_space(vec : Vector):
+    vnew = convert_vector_space(vec)
+    vnew.x *= -1.0
+    return vnew
+
+def to_skeleton_rotation_space(quat : Quaternion):
+    qnew = convert_rotation_space(quat)
+    qnew.x *= -1.0
+    qnew.y *= -1.0
+    qnew.z *= -1.0
+    return qnew

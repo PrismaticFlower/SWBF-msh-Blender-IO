@@ -80,6 +80,6 @@ class Model:
 class Animation:
     """ Class representing 'CYCL' + 'KFR3' sections in a .msh file """
 
-    name: str = "open"
+    name: str = "wiggle"
     bone_transforms: Dict[str, List[ModelTransform]] = field(default_factory=dict)
     

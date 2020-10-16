@@ -36,6 +36,7 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
 
         if obj.type == "ARMATURE":
             models_list += expand_armature(obj)
+            continue
 
         local_translation, local_rotation, _ = obj.matrix_local.decompose()
 
@@ -47,6 +48,7 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
         model.transform.translation = convert_vector_space(local_translation)
 
         if obj.type in MESH_OBJECT_TYPES:
+            mesh = obj.to_mesh()
             model.geometry = create_mesh_geometry(mesh, obj.vertex_groups)
             obj.to_mesh_clear()
 
@@ -353,7 +355,7 @@ def expand_armature(obj: bpy.types.Object) -> List[Model]:
             transform = bone.parent.matrix_local.inverted() @ transform
             model.parent = bone.parent.name
         else:
-            model.parent = obj.name
+            model.parent = "DummyRoot" # obj.name
 
         local_translation, local_rotation, _ = transform.decompose()
 
@@ -365,12 +367,3 @@ def expand_armature(obj: bpy.types.Object) -> List[Model]:
         bones.append(model)
 
     return bones
-
-def convert_vector_space(vec: Vector) -> Vector:
-    return Vector((-vec.x, vec.z, vec.y))
-
-def convert_scale_space(vec: Vector) -> Vector:
-    return Vector(vec.xzy)
-
-def convert_rotation_space(quat: Quaternion) -> Quaternion:
-    return Quaternion((-quat.w, quat.x, -quat.z, -quat.y))

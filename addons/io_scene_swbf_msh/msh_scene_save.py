@@ -10,7 +10,7 @@ from .msh_utilities import *
 
 from .crc import *
 
-def save_scene(output_file, scene: Scene):
+def save_scene(output_file, scene: Scene, separate_anims: bool):
     """ Saves scene to the supplied file. """
 
     with Writer(file=output_file, chunk_id="HEDR") as hedr:
@@ -26,12 +26,15 @@ def save_scene(output_file, scene: Scene):
                 material_index = _write_matl_and_get_material_index(matl, scene)
 
             for index, model in enumerate(scene.models):
+                if separate_anims and (model.model_type not in {ModelType.NULL, ModelType.BONE}):
+                    continue
                 with msh2.create_child("MODL") as modl:
                     _write_modl(modl, model, index, material_index, model_index)
 
-        with hedr.create_child("ANM2") as anm2: #simple for now
-            for anim in scene.anims:
-                _write_anm2(anm2, anim)
+        if separate_anims:
+            with hedr.create_child("ANM2") as anm2: #simple for now
+                for anim in scene.anims:
+                    _write_anm2(anm2, anim)
 
         with hedr.create_child("CL1L"):
             pass
@@ -205,7 +208,32 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
             for index in islice(strip, 2, len(strip)):
                 strp.write_u16(index)
 
+'''
+SKINNING CHUNKS
+'''
+def _write_wght(wght: Writer, weights: List[List[VertexWeight]]):
+    wght.write_u32(len(weights))
 
+    for weight_list in weights:
+        weight_list += [VertexWeight(0.0, 0)] * 4
+        weight_list = sorted(weight_list, key=lambda w: w.weight, reverse=True)
+        weight_list = weight_list[:4]
+
+        total_weight = max(sum(map(lambda w: w.weight, weight_list)), 1e-5)
+
+        for weight in weight_list:
+           wght.write_i32(weight.bone)
+           wght.write_f32(weight.weight / total_weight)
+
+def _write_envl(envl: Writer, model: Model, model_index: Dict[str, int]):
+    envl.write_u32(len(model.bone_map))
+
+    for bone_name in model.bone_map:
+        envl.write_u32(model_index[bone_name])
+
+'''
+ANIMATION CHUNKS
+'''
 def _write_anm2(anm2: Writer, anim: Animation):
 
     with anm2.create_child("CYCL") as cycl:
@@ -240,22 +268,4 @@ def _write_anm2(anm2: Writer, anim: Animation):
                 kfr3.write_f32(xform.rotation.x, xform.rotation.y, xform.rotation.z, xform.rotation.w)
 
 
-def _write_wght(wght: Writer, weights: List[List[VertexWeight]]):
-    wght.write_u32(len(weights))
 
-    for weight_list in weights:
-        weight_list += [VertexWeight(0.0, 0)] * 4
-        weight_list = sorted(weight_list, key=lambda w: w.weight, reverse=True)
-        weight_list = weight_list[:4]
-
-        total_weight = max(sum(map(lambda w: w.weight, weight_list)), 1e-5)
-
-        for weight in weight_list:
-           wght.write_i32(weight.bone)
-           wght.write_f32(weight.weight / total_weight)
-
-def _write_envl(envl: Writer, model: Model, model_index: Dict[str, int]):
-    envl.write_u32(len(model.bone_map))
-
-    for bone_name in model.bone_map:
-        envl.write_u32(model_index[bone_name])

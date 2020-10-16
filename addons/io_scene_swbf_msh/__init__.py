@@ -97,14 +97,24 @@ class ExportMSH(Operator, ExportHelper):
         default=True
     )
 
+    export_anims: BoolProperty(
+        name="Export Animations",
+        description="Action export test",
+        default=False
+    )
+
+
     def execute(self, context):
+
         with open(self.filepath, 'wb') as output_file:
             save_scene(
                 output_file=output_file,
                 scene=create_scene(
                     generate_triangle_strips=self.generate_triangle_strips, 
                     apply_modifiers=self.apply_modifiers,
-                    export_target=self.export_target))
+                    export_target=self.export_target),
+                separate_anims=self.export_anims
+            )
 
         return {'FINISHED'}
 

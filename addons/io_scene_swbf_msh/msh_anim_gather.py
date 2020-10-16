@@ -35,18 +35,40 @@ def gather_animdata(armature: bpy.types.Armature) -> List[Animation]:
         for bone in armature.pose.bones:
 
             xform = ModelTransform()
-            xform.translation = convert_vector_space(bone.location)
-            xform.translation.x *= -1.0
-            xform.rotation = convert_rotation_space(bone.rotation_quaternion)
-            xform.rotation.x *= -1.0
-            xform.rotation.y *= -1.0
-            xform.rotation.z *= -1.0
+            xform.translation = to_skeleton_vector_space(bone.location)
+            xform.rotation = to_skeleton_rotation_space(bone.rotation_quaternion)
             		
             anim_data.bone_transforms[bone.name].append(xform)
             
             
     return [anim_data]
 
+
+def get_basepose(armature: bpy.types.Armature) -> Animation:
+
+    anim_data = Animation();
+    anim_data.name = "basepose"
+
+    bpy.context.scene.frame_set(0.0)
+
+    anim_data.bone_transforms[armature.parent.name] = []
+    for bone in armature.data.bones:
+        anim_data.bone_transforms[bone.name] = []
+
+    for frame in range(2):
+
+        anim_data.bone_transforms[armature.parent.name].append(ModelTransform()) #for testing
+
+        for bone in armature.pose.bones:
+
+            xform = ModelTransform()
+            xform.translation = to_skeleton_vector_space(bone.location)
+            xform.rotation = to_skeleton_rotation_space(bone.rotation_quaternion)
+            		
+            anim_data.bone_transforms[bone.name].append(xform)
+            
+            
+    return anim_data
 
 
 
