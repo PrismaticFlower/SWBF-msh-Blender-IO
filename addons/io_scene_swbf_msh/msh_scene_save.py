@@ -17,6 +17,7 @@ def save_scene(output_file, scene: Scene):
             with msh2.create_child("SINF") as sinf:
                 _write_sinf(sinf, scene)
 
+            model_index: Dict[str, int] = {model.name:i for i, model in enumerate(scene.models)}
             material_index: Dict[str, int] = {}
 
             with msh2.create_child("MATL") as matl:
@@ -24,7 +25,7 @@ def save_scene(output_file, scene: Scene):
 
             for index, model in enumerate(scene.models):
                 with msh2.create_child("MODL") as modl:
-                    _write_modl(modl, model, index, material_index)
+                    _write_modl(modl, model, index, material_index, model_index)
 
         with hedr.create_child("CL1L"):
             pass
@@ -97,7 +98,7 @@ def _write_matd(matd: Writer, material_name: str, material: Material):
             with matd.create_child("TX3D") as tx3d:
                 tx3d.write_string(material.texture3)
 
-def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str, int]):
+def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str, int], model_index: Dict[str, int]):
     with modl.create_child("MTYP") as mtyp:
         mtyp.write_u32(model.model_type.value)
 
@@ -124,6 +125,10 @@ def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str
                 with geom.create_child("SEGM") as segm:
                     _write_segm(segm, segment, material_index)
 
+            if model.bone_map:
+                with geom.create_child("ENVL") as envl:
+                    _write_envl(envl, model, model_index)
+
     if model.collisionprimitive is not None:
         with modl.create_child("SWCI") as swci:
             swci.write_u32(model.collisionprimitive.shape.value)
@@ -146,6 +151,10 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
 
         for position in segment.positions:
             posl.write_f32(position.x, position.y, position.z)
+
+    if segment.weights:
+        with segm.create_child("WGHT") as wght:
+            _write_wght(wght, segment.weights)
 
     with segm.create_child("NRML") as nrml:
         nrml.write_u32(len(segment.normals))
@@ -189,3 +198,23 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
 
             for index in islice(strip, 2, len(strip)):
                 strp.write_u16(index)
+
+def _write_wght(wght: Writer, weights: List[List[VertexWeight]]):
+    wght.write_u32(len(weights))
+
+    for weight_list in weights:
+        weight_list += [VertexWeight(0.0, 0)] * 4
+        weight_list = sorted(weight_list, key=lambda w: w.weight, reverse=True)
+        weight_list = weight_list[:4]
+
+        total_weight = max(sum(map(lambda w: w.weight, weight_list)), 1e-5)
+
+        for weight in weight_list:
+           wght.write_i32(weight.bone)
+           wght.write_f32(weight.weight / total_weight)
+
+def _write_envl(envl: Writer, model: Model, model_index: Dict[str, int]):
+    envl.write_u32(len(model.bone_map))
+
+    for bone_name in model.bone_map:
+        envl.write_u32(model_index[bone_name])

@@ -34,6 +34,9 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
 
         check_for_bad_lod_suffix(obj)
 
+        if obj.type == "ARMATURE":
+            models_list += expand_armature(obj)
+
         local_translation, local_rotation, _ = obj.matrix_local.decompose()
 
         model = Model()
@@ -48,7 +51,7 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
 
         if obj.type in MESH_OBJECT_TYPES:
             mesh = obj.to_mesh()
-            model.geometry = create_mesh_geometry(mesh)
+            model.geometry = create_mesh_geometry(mesh, obj.vertex_groups)
             obj.to_mesh_clear()
 
             _, _, world_scale = obj.matrix_world.decompose()
@@ -63,6 +66,9 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
 
         if get_is_collision_primitive(obj):
             model.collisionprimitive = get_collision_primitive(obj)
+
+        if obj.vertex_groups:
+            model.bone_map = [group.name for group in obj.vertex_groups]
 
         models_list.append(model)
 
@@ -80,7 +86,7 @@ def create_parents_set() -> Set[str]:
 
     return parents
 
-def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
+def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[GeometrySegment]:
     """ Creates a list of GeometrySegment objects from a Blender mesh.
         Does NOT create triangle strips in the GeometrySegment however. """
 
@@ -93,13 +99,17 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
     material_count = max(len(mesh.materials), 1)
 
     segments: List[GeometrySegment] = [GeometrySegment() for i in range(material_count)]
-    vertex_cache: List[Dict[Tuple[float], int]] = [dict() for i in range(material_count)]
+    vertex_cache = [dict() for i in range(material_count)]
     vertex_remap: List[Dict[Tuple[int, int], int]] = [dict() for i in range(material_count)]
     polygons: List[Set[int]] = [set() for i in range(material_count)]
 
     if mesh.vertex_colors.active is not None:
         for segment in segments:
             segment.colors = []
+
+    if has_weights:
+        for segment in segments:
+            segment.weights = []
 
     for segment, material in zip(segments, mesh.materials):
         segment.material_name = material.name
@@ -139,6 +149,11 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
                 for v in mesh.vertex_colors.active.data[loop_index].color:
                     yield v
 
+            if segment.weights is not None:
+                for v in mesh.vertices[vertex_index].groups:
+                    yield v.group
+                    yield v.weight
+
         vertex_cache_entry = tuple(get_cache_vertex())
         cached_vertex_index = cache.get(vertex_cache_entry, vertex_cache_miss_index)
 
@@ -162,6 +177,11 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
         if segment.colors is not None:
             segment.colors.append(list(mesh.vertex_colors.active.data[loop_index].color))
 
+        if segment.weights is not None:
+            groups = mesh.vertices[vertex_index].groups
+           
+            segment.weights.append([VertexWeight(v.weight, v.group) for v in groups])
+
         return new_index
 
     for tri in mesh.loop_triangles:
@@ -181,10 +201,12 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
 
 def get_model_type(obj: bpy.types.Object) -> ModelType:
     """ Get the ModelType for a Blender object. """
-    # TODO: Skinning support, etc
 
     if obj.type in MESH_OBJECT_TYPES:
-        return ModelType.STATIC
+        if obj.vertex_groups:
+            return ModelType.SKIN
+        else:
+            return ModelType.STATIC
 
     return ModelType.NULL
 
@@ -319,6 +341,31 @@ def select_objects(export_target: str) -> List[bpy.types.Object]:
             parent = parent.parent
 
     return objects + parents
+
+def expand_armature(obj: bpy.types.Object) -> List[Model]:
+    bones: List[Model] = []
+
+    for bone in obj.data.bones:
+        model = Model()
+
+        transform = bone.matrix_local
+
+        if bone.parent:
+            transform = bone.parent.matrix_local.inverted() @ transform
+            model.parent = bone.parent.name
+        else:
+            model.parent = obj.name
+
+        local_translation, local_rotation, _ = transform.decompose()
+
+        model.model_type = ModelType.BONE
+        model.name = bone.name
+        model.transform.rotation = convert_rotation_space(local_rotation)
+        model.transform.translation = convert_vector_space(local_translation)
+
+        bones.append(model)
+
+    return bones
 
 def convert_vector_space(vec: Vector) -> Vector:
     return Vector((-vec.x, vec.z, vec.y))

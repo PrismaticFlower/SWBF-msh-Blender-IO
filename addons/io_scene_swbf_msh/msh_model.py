@@ -28,16 +28,23 @@ class ModelTransform:
     rotation: Quaternion = field(default_factory=Quaternion)
 
 @dataclass
+class VertexWeight:
+    """ Class representing a vertex weight in a .msh file. """
+
+    weight: float = 1.0
+    bone: int = 0
+
+@dataclass
 class GeometrySegment:
     """ Class representing a 'SEGM' section in a .msh file. """
 
-    material_name: str = ""
+    material_name: str = field(default_factory=str)
 
     positions: List[Vector] = field(default_factory=list)
     normals: List[Vector] = field(default_factory=list)
     colors: List[List[float]] = None
     texcoords: List[Vector] = field(default_factory=list)
-    # TODO: Skin support.
+    weights: List[List[VertexWeight]] = None
 
     polygons: List[List[int]] = field(default_factory=list)
     triangles: List[List[int]] = field(default_factory=list)
@@ -62,6 +69,8 @@ class Model:
     hidden: bool = True
 
     transform: ModelTransform = field(default_factory=ModelTransform)
+
+    bone_map: List[str] = None
 
     geometry: List[GeometrySegment] = None
     collisionprimitive: CollisionPrimitive = None
