@@ -97,9 +97,15 @@ class ExportMSH(Operator, ExportHelper):
         default=True
     )
 
-    export_anims: BoolProperty(
-        name="Export Animations",
-        description="Action export test",
+    export_animated: BoolProperty(
+        name="Export Animated Object",
+        description="Always check if the object will be animated.",
+        default=False
+    )
+
+    export_skeleton_only: BoolProperty(
+        name="Export Skeleton",
+        description="Check if you intend to export skeleton data only.",
         default=False
     )
 
@@ -112,8 +118,10 @@ class ExportMSH(Operator, ExportHelper):
                 scene=create_scene(
                     generate_triangle_strips=self.generate_triangle_strips, 
                     apply_modifiers=self.apply_modifiers,
-                    export_target=self.export_target),
-                separate_anims=self.export_anims
+                    export_target=self.export_target,
+                    skel_only=self.export_skeleton_only
+                ),
+                is_animated=self.export_animated
             )
 
         return {'FINISHED'}

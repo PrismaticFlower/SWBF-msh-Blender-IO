@@ -14,7 +14,7 @@ SKIPPED_OBJECT_TYPES = {"LATTICE", "CAMERA", "LIGHT", "SPEAKER", "LIGHT_PROBE"}
 MESH_OBJECT_TYPES = {"MESH", "CURVE", "SURFACE", "META", "FONT", "GPENCIL"}
 MAX_MSH_VERTEX_COUNT = 32767
 
-def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
+def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool) -> List[Model]:
     """ Gathers the Blender objects from the current scene and returns them as a list of
         Model objects. """
 
@@ -36,15 +36,26 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
 
         if obj.type == "ARMATURE":
             models_list += expand_armature(obj)
-            continue
 
-        local_translation, local_rotation, _ = obj.matrix_local.decompose()
+        if skeleton_only:
+            continue
 
         model = Model()
         model.name = obj.name
         model.model_type = get_model_type(obj)
         model.hidden = get_is_model_hidden(obj)
-        model.transform.rotation = convert_rotation_space(local_rotation)
+
+        transform = obj.matrix_local
+
+        if obj.parent_bone:
+            model.parent = obj.parent_bone
+            transform = obj.parent.data.bones[obj.parent_bone].matrix_local.inverted() @ transform
+        else:
+            if obj.parent is not None:
+                model.parent = obj.parent.name
+
+        local_translation, local_rotation, _ = transform.decompose()
+        model.transform.rotation = convert_rotation_space(local_rotation)  
         model.transform.translation = convert_vector_space(local_translation)
 
         if obj.type in MESH_OBJECT_TYPES:
@@ -126,11 +137,11 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[Geomet
 
         if use_smooth_normal or mesh.use_auto_smooth:
             if mesh.has_custom_normals:
-                vertex_normal = mesh.loops[loop_index].normal
+                vertex_normal = Vector( mesh.loops[loop_index].normal )
             else:
-                vertex_normal = mesh.vertices[vertex_index].normal
+                vertex_normal = Vector( mesh.vertices[vertex_index].normal )
         else:
-            vertex_normal = face_normal
+            vertex_normal = Vector(face_normal)
 
         def get_cache_vertex():
             yield mesh.vertices[vertex_index].co.x
@@ -343,6 +354,8 @@ def select_objects(export_target: str) -> List[bpy.types.Object]:
 
     return objects + parents
 
+
+
 def expand_armature(obj: bpy.types.Object) -> List[Model]:
     bones: List[Model] = []
 
@@ -355,7 +368,7 @@ def expand_armature(obj: bpy.types.Object) -> List[Model]:
             transform = bone.parent.matrix_local.inverted() @ transform
             model.parent = bone.parent.name
         else:
-            model.parent = "DummyRoot" # obj.name
+            model.parent = obj.name
 
         local_translation, local_rotation, _ = transform.decompose()
 

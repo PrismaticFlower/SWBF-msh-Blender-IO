@@ -10,7 +10,7 @@ from .msh_utilities import *
 
 from .crc import *
 
-def save_scene(output_file, scene: Scene, separate_anims: bool):
+def save_scene(output_file, scene: Scene, is_animated: bool):
     """ Saves scene to the supplied file. """
 
     with Writer(file=output_file, chunk_id="HEDR") as hedr:
@@ -26,12 +26,19 @@ def save_scene(output_file, scene: Scene, separate_anims: bool):
                 material_index = _write_matl_and_get_material_index(matl, scene)
 
             for index, model in enumerate(scene.models):
-                if separate_anims and (model.model_type not in {ModelType.NULL, ModelType.BONE}):
-                    continue
+
+                print(model.name)
+
                 with msh2.create_child("MODL") as modl:
                     _write_modl(modl, model, index, material_index, model_index)
 
-        if separate_anims:
+        if is_animated:
+            with hedr.create_child("SKL2") as skl2:
+                _write_skl2(skl2, scene)
+
+            with hedr.create_child("BLN2") as bln2:
+                _write_bln2(bln2, scene)
+
             with hedr.create_child("ANM2") as anm2: #simple for now
                 for anim in scene.anims:
                     _write_anm2(anm2, anim)
@@ -44,8 +51,15 @@ def _write_sinf(sinf: Writer, scene: Scene):
         name.write_string(scene.name)
 
     with sinf.create_child("FRAM") as fram:
-        fram.write_i32(0, 20) #test values
-        fram.write_f32(10.0) #test values
+        min_index = 0
+        max_index = 1
+
+        if scene.anims and len(scene.anims) > 0:
+            min_index = min([anim.start_index for anim in scene.anims])
+            max_index = min([anim.end_index for anim in scene.anims])
+
+        fram.write_i32(min_index, max_index)
+        fram.write_f32(10.0)
 
     with sinf.create_child("BBOX") as bbox:
         aabb = create_scene_aabb(scene)
@@ -130,6 +144,12 @@ def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str
 
     if model.geometry is not None:
         with modl.create_child("GEOM") as geom:
+
+            with geom.create_child("BBOX") as bbox:
+                bbox.write_f32(0.0, 0.0, 0.0, 1.0)
+                bbox.write_f32(0, 0, 0)
+                bbox.write_f32(1.0,1.0,1.0,2.0)
+
             for segment in model.geometry:
                 with geom.create_child("SEGM") as segm:
                     _write_segm(segm, segment, material_index)
@@ -168,7 +188,7 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
     with segm.create_child("NRML") as nrml:
         nrml.write_u32(len(segment.normals))
 
-        for normal in segment.normals:
+        for i,normal in enumerate(segment.normals):
             nrml.write_f32(normal.x, normal.y, normal.z)
 
     if segment.colors is not None:
@@ -214,6 +234,8 @@ SKINNING CHUNKS
 def _write_wght(wght: Writer, weights: List[List[VertexWeight]]):
     wght.write_u32(len(weights))
 
+    print("Writing WGHT: ")
+
     for weight_list in weights:
         weight_list += [VertexWeight(0.0, 0)] * 4
         weight_list = sorted(weight_list, key=lambda w: w.weight, reverse=True)
@@ -221,18 +243,46 @@ def _write_wght(wght: Writer, weights: List[List[VertexWeight]]):
 
         total_weight = max(sum(map(lambda w: w.weight, weight_list)), 1e-5)
 
+        print_str = ""
+
         for weight in weight_list:
+   
+           print_str += "({}, {})  ".format(weight.bone, weight.weight / total_weight)
+
            wght.write_i32(weight.bone)
            wght.write_f32(weight.weight / total_weight)
+
+        print("  {}".format(print_str))
 
 def _write_envl(envl: Writer, model: Model, model_index: Dict[str, int]):
     envl.write_u32(len(model.bone_map))
 
+    print("Writing ENVL: ")
+
     for bone_name in model.bone_map:
+        print("  {:10} Index: {}".format(bone_name, model_index[bone_name]))
         envl.write_u32(model_index[bone_name])
 
 '''
-ANIMATION CHUNKS
+SKELETON CHUNKS
+'''
+def _write_bln2(bln2: Writer, scene: Scene):
+    bones = scene.anims[0].bone_transforms.keys()
+    bln2.write_u32(len(bones))
+
+    for boneName in bones:
+        bln2.write_u32(crc(boneName), 0) 
+
+def _write_skl2(skl2: Writer, scene: Scene):
+    bones = scene.anims[0].bone_transforms.keys()
+    skl2.write_u32(len(bones))
+
+    for boneName in bones:
+        skl2.write_u32(crc(boneName), 0) #default values 
+        skl2.write_f32(1.0, 0.0, 0.0)   #from docs
+
+'''
+ANIMATION CHUNK
 '''
 def _write_anm2(anm2: Writer, anim: Animation):
 
@@ -241,12 +291,12 @@ def _write_anm2(anm2: Writer, anim: Animation):
         cycl.write_u32(1)
         cycl.write_string(anim.name)
         
-        for _ in range(63 - len(anim.name) ):
+        for _ in range(63 - len(anim.name)):
             cycl.write_u8(0)
         
-        cycl.write_f32(10.0) #test framerate
+        cycl.write_f32(anim.framerate)
         cycl.write_u32(0) #what does play style refer to?
-        cycl.write_u32(0, 20) #first frame indices
+        cycl.write_u32(anim.start_index, anim.end_index) #first frame indices
 
 
     with anm2.create_child("KFR3") as kfr3:
@@ -257,7 +307,8 @@ def _write_anm2(anm2: Writer, anim: Animation):
             kfr3.write_u32(crc(boneName))
             kfr3.write_u32(0) #what is keyframe type?
 
-            kfr3.write_u32(21, 21) #basic testing
+            num_frames = 1 + anim.end_index - anim.start_index  
+            kfr3.write_u32(num_frames, num_frames) #basic testing
 
             for i, xform in enumerate(anim.bone_transforms[boneName]):
                 kfr3.write_u32(i)

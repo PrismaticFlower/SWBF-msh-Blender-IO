@@ -12,65 +12,42 @@ from .msh_utilities import *
 from .msh_model_gather import *
 
 
-def gather_animdata(armature: bpy.types.Armature) -> List[Animation]:
-
-    anim_data = Animation();
+def extract_anim(armature: bpy.types.Armature) -> Animation:
 
     action = armature.animation_data.action
+    anim = Animation();
+
+    if not action:
+        framerange = Vector((0.0,1.0))
+    else:
+        framerange = action.frame_range
     
-    framerange = action.frame_range
-    increment  = (framerange.y - framerange.x) / 20.0
-    offset     = framerange.x;
+    num_frames = math.floor(framerange.y - framerange.x) + 1
+    increment  = (framerange.y - framerange.x) / (num_frames - 1)
 
-    anim_data.bone_transforms[armature.parent.name] = []
+    anim.end_index = num_frames - 1
+    
     for bone in armature.data.bones:
-        anim_data.bone_transforms[bone.name] = []
+        anim.bone_transforms[bone.name] = []
 
-    for frame in range(21):
-        frame_time = offset + frame * increment
+    for frame in range(num_frames):
+        
+        frame_time = framerange.x + frame * increment
         bpy.context.scene.frame_set(frame_time)
 
-        anim_data.bone_transforms[armature.parent.name].append(ModelTransform()) #for testing
-
         for bone in armature.pose.bones:
 
-            xform = ModelTransform()
-            xform.translation = to_skeleton_vector_space(bone.location)
-            xform.rotation = to_skeleton_rotation_space(bone.rotation_quaternion)
-            		
-            anim_data.bone_transforms[bone.name].append(xform)
-            
-            
-    return [anim_data]
+            transform = bone.matrix
 
-
-def get_basepose(armature: bpy.types.Armature) -> Animation:
-
-    anim_data = Animation();
-    anim_data.name = "basepose"
-
-    bpy.context.scene.frame_set(0.0)
-
-    anim_data.bone_transforms[armature.parent.name] = []
-    for bone in armature.data.bones:
-        anim_data.bone_transforms[bone.name] = []
-
-    for frame in range(2):
-
-        anim_data.bone_transforms[armature.parent.name].append(ModelTransform()) #for testing
-
-        for bone in armature.pose.bones:
+            if bone.parent:
+                transform = bone.parent.matrix.inverted() @ transform
+ 
+            loc, rot, _ = transform.decompose()
 
             xform = ModelTransform()
-            xform.translation = to_skeleton_vector_space(bone.location)
-            xform.rotation = to_skeleton_rotation_space(bone.rotation_quaternion)
-            		
-            anim_data.bone_transforms[bone.name].append(xform)
-            
-            
-    return anim_data
+            xform.rotation = convert_rotation_space(rot)
+            xform.translation = convert_vector_space(loc)
 
+            anim.bone_transforms[bone.name].append(xform)
 
-
-
-
+    return anim

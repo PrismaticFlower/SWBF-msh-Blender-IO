@@ -80,6 +80,10 @@ class Model:
 class Animation:
     """ Class representing 'CYCL' + 'KFR3' sections in a .msh file """
 
-    name: str = "wiggle"
+    name: str = "fullanimation"
     bone_transforms: Dict[str, List[ModelTransform]] = field(default_factory=dict)
+
+    framerate: float = 10.0
+    start_index : int = 0
+    end_index   : int = 0
     

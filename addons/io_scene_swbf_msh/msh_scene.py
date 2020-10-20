@@ -47,7 +47,7 @@ class Scene:
     anims:  List[Animation] = field(default_factory=list)
 
 
-def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_target: str) -> Scene:
+def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_target: str, skel_only: bool) -> Scene:
     """ Create a msh Scene from the active Blender scene. """
 
     scene = Scene()
@@ -56,7 +56,7 @@ def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_t
 
     scene.materials = gather_materials()
 
-    scene.models = gather_models(apply_modifiers=apply_modifiers, export_target=export_target)
+    scene.models = gather_models(apply_modifiers=apply_modifiers, export_target=export_target, skeleton_only=skel_only)
     scene.models = sort_by_parent(scene.models)
 
     if generate_triangle_strips:
@@ -70,12 +70,14 @@ def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_t
     if has_multiple_root_models(scene.models):
         scene.models = reparent_model_roots(scene.models)
 
-
     scene.materials = remove_unused_materials(scene.materials, scene.models)
-
-    scene.anims = gather_animdata(bpy.context.scene.objects["Armature"])
+ 
+    #creates a dummy basepose if no Action is selected
+    if "Armature" in bpy.context.scene.objects.keys():
+        scene.anims = [extract_anim(bpy.context.scene.objects["Armature"])]
 
     return scene
+
 
 def create_scene_aabb(scene: Scene) -> SceneAABB:
     """ Create a SceneAABB for a Scene. """
