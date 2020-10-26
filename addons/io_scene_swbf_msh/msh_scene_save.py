@@ -8,8 +8,6 @@ from .msh_material import *
 from .msh_writer import Writer
 from .msh_utilities import *
 
-from .crc import *
-
 def save_scene(output_file, scene: Scene):
     """ Saves scene to the supplied file. """
 
@@ -26,11 +24,7 @@ def save_scene(output_file, scene: Scene):
 
             for index, model in enumerate(scene.models):
                 with msh2.create_child("MODL") as modl:
-                    _write_modl(modl, model, index, material_index, scene)
-
-        #with hedr.create_child("ANM2") as anm2: #simple for now
-        #    for anim in scene.anims:
-        #        _write_anm2(anm2, anim)
+                    _write_modl(modl, model, index, material_index)
 
         with hedr.create_child("CL1L"):
             pass
@@ -40,8 +34,8 @@ def _write_sinf(sinf: Writer, scene: Scene):
         name.write_string(scene.name)
 
     with sinf.create_child("FRAM") as fram:
-        fram.write_i32(0, 20) #test values
-        fram.write_f32(10.0) #test values
+        fram.write_i32(0, 1)
+        fram.write_f32(29.97003)
 
     with sinf.create_child("BBOX") as bbox:
         aabb = create_scene_aabb(scene)
@@ -103,7 +97,7 @@ def _write_matd(matd: Writer, material_name: str, material: Material):
             with matd.create_child("TX3D") as tx3d:
                 tx3d.write_string(material.texture3)
 
-def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str, int], scene: Scene):
+def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str, int]):
     with modl.create_child("MTYP") as mtyp:
         mtyp.write_u32(model.model_type.value)
 
@@ -129,12 +123,6 @@ def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str
             for segment in model.geometry:
                 with geom.create_child("SEGM") as segm:
                     _write_segm(segm, segment, material_index)
-        
-        if model.model_type == ModelType.SKIN:
-            with modl.create_child("ENVL") as envl:
-                envl.write_u32(len(scene.models))
-                for i in range(len(scene.models)):
-                    envl.write_u32(i)
 
     if model.collisionprimitive is not None:
         with modl.create_child("SWCI") as swci:
@@ -164,13 +152,6 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
 
         for normal in segment.normals:
             nrml.write_f32(normal.x, normal.y, normal.z)
-
-    if segment.weights is not None:
-        with segm.create_child("WGHT") as wght:
-            wght.write_u32(len(segment.weights) / 4)
-            for weight in segment.weights:
-                wght.write_u32(weight[0])
-                wght.write_f32(weight[1])
 
     if segment.colors is not None:
         with segm.create_child("CLRL") as clrl:
@@ -208,46 +189,3 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
 
             for index in islice(strip, 2, len(strip)):
                 strp.write_u16(index)
-
-
-def _write_anm2(anm2: Writer, anim: Animation):
-
-    with anm2.create_child("CYCL") as cycl:
-        
-        cycl.write_u32(1)
-        cycl.write_string(anim.name)
-        
-        for _ in range(63 - len(anim.name)):
-            cycl.write_u8(0)
-        
-        cycl.write_f32(10.0) #test framerate
-        cycl.write_u32(0) #what does play style refer to?
-        cycl.write_u32(0, 20) #first frame indices
-
-
-    with anm2.create_child("KFR3") as kfr3:
-        
-        kfr3.write_u32(len(anim.bone_transforms.keys()))
-
-        for boneName in anim.bone_transforms.keys():
-            kfr3.write_u32(crc(boneName))
-            kfr3.write_u32(0) #what is keyframe type?
-
-            kfr3.write_u32(21, 21) #basic testing
-
-            for i, xform in enumerate(anim.bone_transforms[boneName]):
-                kfr3.write_u32(i)
-                kfr3.write_f32(xform.translation.x, xform.translation.y, xform.translation.z)
-
-            for i, xform in enumerate(anim.bone_transforms[boneName]):
-                kfr3.write_u32(i)
-                kfr3.write_f32(xform.rotation.x, xform.rotation.y, xform.rotation.z, xform.rotation.w)
-
-
-
-
-
-
-
-
-

@@ -2,7 +2,7 @@
     saved to a .msh file. """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple
+from typing import List
 from enum import Enum
 from mathutils import Vector, Quaternion
 
@@ -37,8 +37,7 @@ class GeometrySegment:
     normals: List[Vector] = field(default_factory=list)
     colors: List[List[float]] = None
     texcoords: List[Vector] = field(default_factory=list)
-
-    weights: List[Tuple[int, float]] = None
+    # TODO: Skin support.
 
     polygons: List[List[int]] = field(default_factory=list)
     triangles: List[List[int]] = field(default_factory=list)
@@ -66,13 +65,3 @@ class Model:
 
     geometry: List[GeometrySegment] = None
     collisionprimitive: CollisionPrimitive = None
-
-    vgroups_to_modelnames_map : Dict[int, str] = None
-
-@dataclass
-class Animation:
-    """ Class representing 'CYCL' + 'KFR3' sections in a .msh file """
-
-    name: str = "open"
-    bone_transforms: Dict[str, List[ModelTransform]] = field(default_factory=dict)
-    

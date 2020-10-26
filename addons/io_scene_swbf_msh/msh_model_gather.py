@@ -4,13 +4,13 @@
 import bpy
 import math
 from enum import Enum
-from typing import List, Set, Dict, Tuple, Set
+from typing import List, Set, Dict, Tuple
 from itertools import zip_longest
 from .msh_model import *
 from .msh_model_utilities import *
 from .msh_utilities import *
 
-SKIPPED_OBJECT_TYPES = {"LATTICE", "CAMERA", "LIGHT", "SPEAKER", "LIGHT_PROBE", "ARMATURE"}
+SKIPPED_OBJECT_TYPES = {"LATTICE", "CAMERA", "LIGHT", "SPEAKER", "LIGHT_PROBE"}
 MESH_OBJECT_TYPES = {"MESH", "CURVE", "SURFACE", "META", "FONT", "GPENCIL"}
 MAX_MSH_VERTEX_COUNT = 32767
 
@@ -22,7 +22,6 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
     parents = create_parents_set()
 
     models_list: List[Model] = []
-    skeleton: bpy.types.Armature = None
 
     for uneval_obj in select_objects(export_target):
         if uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents:
@@ -45,24 +44,11 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
         model.transform.translation = convert_vector_space(local_translation)
 
         if obj.parent is not None:
-            if obj.parent.type == "ARMATURE":
-                skeleton = obj.parent
-
-                parent_bone_name = obj.parent_bone
-                if parent_bone_name == "":
-                    model.parent = obj.parent.parent
-                else:
-                    model.parent = parent_bone_name
-
-                if model.model_type == ModelType.SKIN:
-                    model.vgroups_to_modelnames_map = {}
-                    for i, vgroup in enumerate(obj.vertex_groups):
-                        vgroups_to_modelnames_map[i] = vgroup.name
-
+            model.parent = obj.parent.name
 
         if obj.type in MESH_OBJECT_TYPES:
-            mesh = obj.to_mesh()         
-            model.geometry = create_mesh_geometry(mesh, model.model_type == ModelType.SKIN)
+            mesh = obj.to_mesh()
+            model.geometry = create_mesh_geometry(mesh)
             obj.to_mesh_clear()
 
             _, _, world_scale = obj.matrix_world.decompose()
@@ -80,30 +66,6 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
 
         models_list.append(model)
 
-
-    for bone in skeleton.data.bones:
-
-        model = Model()
-        model.name = bone.name
-        model.model_type = ModelType.NULL
-        model.hidden = False
-
-        local_translation, local_rotation, _ = bone.matrix_local.decompose()
-        model.transform.rotation = convert_rotation_space(local_rotation)
-        model.transform.translation = convert_vector_space(local_translation)
-
-        parent_name = bone.parent
-        if parent_name is not None:
-            model.parent = parent_name
-        else:
-            if skeleton.parent is not None:
-                model.parent = skeleton.parent.name
-            else:
-                model.parent = None        
-
-        models_list.append(model)
-
-
     return models_list
 
 def create_parents_set() -> Set[str]:
@@ -118,7 +80,7 @@ def create_parents_set() -> Set[str]:
 
     return parents
 
-def create_mesh_geometry(mesh: bpy.types.Mesh, is_skinned : bool) -> List[GeometrySegment]:
+def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
     """ Creates a list of GeometrySegment objects from a Blender mesh.
         Does NOT create triangle strips in the GeometrySegment however. """
 
@@ -192,16 +154,6 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, is_skinned : bool) -> List[Geomet
         segment.positions.append(convert_vector_space(mesh.vertices[vertex_index].co))
         segment.normals.append(convert_vector_space(vertex_normal))
 
-        if is_skinned:
-            for i,grp_el in mesh.vertices[vertex_index].groups:
-                segment.weights.append(tuple(grp_el.group, grp_el.weight))
-                print("Adding weight to group {grp_el.group} of value {grp_el.weight}")
-                if i > 3: #will have to look into aramture/skin settings for limiting envolopes to 4 weights...
-                    break
-            while i < 3:
-                segment.weights.append(tuple(0,0.0))
-                i+=1
-
         if mesh.uv_layers.active is None:
             segment.texcoords.append(Vector((0.0, 0.0)))
         else:
@@ -211,7 +163,6 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, is_skinned : bool) -> List[Geomet
             segment.colors.append(list(mesh.vertex_colors.active.data[loop_index].color))
 
         return new_index
-
 
     for tri in mesh.loop_triangles:
         polygons[tri.material_index].add(tri.polygon_index)
@@ -230,8 +181,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, is_skinned : bool) -> List[Geomet
 
 def get_model_type(obj: bpy.types.Object) -> ModelType:
     """ Get the ModelType for a Blender object. """
-    if obj.parent_type == "ARMATURE":
-    	return ModelType.SKIN
+    # TODO: Skinning support, etc
 
     if obj.type in MESH_OBJECT_TYPES:
         return ModelType.STATIC
