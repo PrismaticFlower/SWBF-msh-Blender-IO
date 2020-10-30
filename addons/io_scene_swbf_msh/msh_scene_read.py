@@ -1,4 +1,4 @@
-""" Contains functions for saving a Scene to a .msh file.  """
+""" Contains functions for extracting a scene from a .msh file"""
 
 from itertools import islice
 from typing import Dict
@@ -14,42 +14,52 @@ def read_scene(input_file) -> Scene:
 
     scene = Scene()
     scene.models = []
+    scene.materials = {}
 
     with Reader(file=input_file, chunk_id="HEDR") as hedr:
-        with hedr.read_child("MSH2") as msh2:
 
-            with msh2.read_child("SINF") as sinf:
-                pass
+        while hedr.could_have_child():
 
-            materials_list: List[str] = []
+            next_header = hedr.peak_next_header()
 
-            with msh2.read_child("MATL") as matl:
-                materials_list = _read_matl_and_get_materials_list(matl)
+            if "MSH2" in next_header:
 
-            while ("MODL" in msh2.peak_next_header()):
-                with msh2.read_child("MODL") as modl:
-                    scene.models.append(_read_modl(modl, materials_list))
+                with hedr.read_child("MSH2") as msh2:
 
-            mats_dict = {}
-            for i,mat in enumerate(materials_list):
-                mats_dict["Material" + str(i)] = mat
+                    materials_list = []
 
-            scene.materials = mats_dict
+                    while (msh2.could_have_child()):
 
-        #with hedr.read_child("ANM2") as anm2: #simple for now
-        #    for anim in scene.anims:
-        #        _write_anm2(anm2, anim)
+                        next_header = msh2.peak_next_header()
 
-        #with hedr.read_child("CL1L"):
-        #    pass
+                        if "SINF" in next_header:
+                            with msh2.read_child("SINF") as sinf:
+                                pass
 
+                        elif "MATL" in next_header:
+                            with msh2.read_child("MATL") as matl:
+                                materials_list += _read_matl_and_get_materials_list(matl)
+                                for i,mat in enumerate(materials_list):
+                                    scene.materials[mat.name] = mat
 
+                        elif "MODL" in next_header:
+                            while ("MODL" in msh2.peak_next_header()):
+                                with msh2.read_child("MODL") as modl:
+                                    scene.models.append(_read_modl(modl, materials_list))
+
+                        else:
+                            with hedr.read_child("NULL") as unknown:
+                                pass
+
+            else:
+                with hedr.read_child("NULL") as unknown:
+                    pass
 
     return scene
 
 
-def _read_matl_and_get_materials_list(matl: Reader) -> List[str]:
-    materials_list: List[str] = []
+def _read_matl_and_get_materials_list(matl: Reader) -> List[Material]:
+    materials_list: List[Material] = []
 
     num_mats = matl.read_u32()
 
@@ -72,7 +82,6 @@ def _read_matd(matd: Reader) -> Material:
         if "NAME" in next_header:
             with matd.read_child("NAME") as name:
                 mat.name = name.read_string()
-            print(matd.indent + "Got a new material: " + mat.name)
 
         elif "DATA" in next_header:
             with matd.read_child("DATA") as data:
@@ -109,7 +118,7 @@ def _read_matd(matd: Reader) -> Material:
     return mat
 
 
-def _read_modl(modl: Reader, materials_list: List[str]) -> Model:
+def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
 
     model = Model()
 
@@ -119,7 +128,7 @@ def _read_modl(modl: Reader, materials_list: List[str]) -> Model:
 
         if "MTYP" in next_header:
             with modl.read_child("MTYP") as mtyp:
-                model.model_type = mtyp.read_u32()
+                model.model_type = ModelType(mtyp.read_u32())
 
         elif "MNDX" in next_header:
             with modl.read_child("MNDX") as mndx:
@@ -128,7 +137,6 @@ def _read_modl(modl: Reader, materials_list: List[str]) -> Model:
         elif "NAME" in next_header:
             with modl.read_child("NAME") as name:
                 model.name = name.read_string()
-            print(modl.indent + "New model: " + model.name)
 
         elif "PRNT" in next_header:
             with modl.read_child("PRNT") as prnt:
@@ -151,13 +159,7 @@ def _read_modl(modl: Reader, materials_list: List[str]) -> Model:
                 if "SEGM" in next_header_modl:
                     with geom.read_child("SEGM") as segm:
                        model.geometry.append(_read_segm(segm, materials_list))
-            '''
-            if model.model_type == ModelType.SKIN:
-                with modl.read_child("ENVL") as envl:
-                    envl.write_u32(len(scene.models))
-                    for i in range(len(scene.models)):
-                        envl.write_u32(i)
-            '''
+
         elif "SWCI" in next_header:
             prim = CollisionPrimitive()
             with modl.read_child("SWCI") as swci:
@@ -171,6 +173,7 @@ def _read_modl(modl: Reader, materials_list: List[str]) -> Model:
             with modl.read_child("NULL") as unknown:
                 pass
 
+    return model
 
 
 def _read_tran(tran: Reader) -> ModelTransform:
@@ -178,14 +181,15 @@ def _read_tran(tran: Reader) -> ModelTransform:
     xform = ModelTransform()
 
     tran.skip_bytes(4 * 3) #ignore scale
-    xform.rotation = Quaternion(tran.read_f32(4))
-    xform.position = Vector(tran.read_f32(3))
+
+    rot = tran.read_f32(4)
+    xform.rotation = Quaternion((rot[3], rot[0], rot[1], rot[2]))
+    xform.translation = Vector(tran.read_f32(3))
 
     return xform
 
 
-
-def _read_segm(segm: Reader, materials_list: List[str]) -> GeometrySegment:
+def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
 
     geometry_seg = GeometrySegment()
 
@@ -195,7 +199,7 @@ def _read_segm(segm: Reader, materials_list: List[str]) -> GeometrySegment:
 
         if "MATI" in next_header:
             with segm.read_child("MATI") as mati:
-                geometry_seg.material_name = materials_list[mati.read_u32()]
+                geometry_seg.material_name = materials_list[mati.read_u32()].name
 
         elif "POSL" in next_header:
             with segm.read_child("POSL") as posl:
@@ -210,15 +214,6 @@ def _read_segm(segm: Reader, materials_list: List[str]) -> GeometrySegment:
                 
                 for _ in range(num_positions):
                     geometry_seg.normals.append(Vector(nrml.read_f32(3))) 
-
-        elif "WGHT" in next_header:
-            geometry_seg.weights = []
-
-            with segm.read_child("WGHT") as wght:
-                num_boneweights = wght.read_u32()
-                
-                for _ in range(num_boneweights):
-                    geometry_seg.weights.append((wght.read_u32(), wght.read_f32()))
 
         elif "CLRL" in next_header:
             geometry_seg.colors = []
@@ -255,7 +250,7 @@ def _read_segm(segm: Reader, materials_list: List[str]) -> GeometrySegment:
             with segm.read_child("STRP") as strp:
                 pass
 
-            if segm.read_u16 != 0: #trailing 0 bug
+            if segm.read_u16 != 0: #trailing 0 bug https://schlechtwetterfront.github.io/ze_filetypes/msh.html#STRP
                 segm.skip_bytes(-2)
 
         else:
@@ -263,46 +258,5 @@ def _read_segm(segm: Reader, materials_list: List[str]) -> GeometrySegment:
                 pass
 
     return geometry_seg
-
-
-
-'''
-
-
-def _write_anm2(anm2: Writer, anim: Animation):
-
-    with anm2.read_child("CYCL") as cycl:
-        
-        cycl.write_u32(1)
-        cycl.write_string(anim.name)
-        
-        for _ in range(63 - len(anim.name)):
-            cycl.write_u8(0)
-        
-        cycl.write_f32(10.0) #test framerate
-        cycl.write_u32(0) #what does play style refer to?
-        cycl.write_u32(0, 20) #first frame indices
-
-
-    with anm2.read_child("KFR3") as kfr3:
-        
-        kfr3.write_u32(len(anim.bone_transforms.keys()))
-
-        for boneName in anim.bone_transforms.keys():
-            kfr3.write_u32(crc(boneName))
-            kfr3.write_u32(0) #what is keyframe type?
-
-            kfr3.write_u32(21, 21) #basic testing
-
-            for i, xform in enumerate(anim.bone_transforms[boneName]):
-                kfr3.write_u32(i)
-                kfr3.write_f32(xform.translation.x, xform.translation.y, xform.translation.z)
-
-            for i, xform in enumerate(anim.bone_transforms[boneName]):
-                kfr3.write_u32(i)
-                kfr3.write_f32(xform.rotation.x, xform.rotation.y, xform.rotation.z, xform.rotation.w)
-
-
-'''
 
 

@@ -32,8 +32,9 @@ class MaterialFlags(Flag):
 
 @dataclass
 class Material:
-    """ Data class representing a .msh material.
-        Intended to be stored in a dictionary so name is missing. """
+    """ Data class representing a .msh material."""
+
+    name: str = ""
 
     specular_color: Color = Color((1.0, 1.0, 1.0))
     rendertype: Rendertype = Rendertype.NORMAL
