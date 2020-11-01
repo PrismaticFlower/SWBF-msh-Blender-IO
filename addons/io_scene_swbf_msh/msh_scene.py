@@ -44,6 +44,8 @@ class Scene:
     materials: Dict[str, Material] = field(default_factory=dict)
     models: List[Model] = field(default_factory=list)
 
+    skeleton: List[int] = field(default_factory=list)
+
 def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_target: str) -> Scene:
     """ Create a msh Scene from the active Blender scene. """
 

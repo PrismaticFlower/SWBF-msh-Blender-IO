@@ -3,18 +3,17 @@ import io
 import struct
 
 class Reader:
-    def __init__(self, file, chunk_id: str, parent=None, indent=0):
+    def __init__(self, file, parent=None, indent=0):
         self.file = file
         self.size: int = 0
         self.size_pos = None
         self.parent = parent
-        self.header = chunk_id
-        self.indent = "  " * indent
+        self.indent = "  " * indent #for print debugging
 
 
     def __enter__(self):
         self.size_pos = self.file.tell()
-        self.file.seek(4,1) #skip header, will add check later
+        self.header = self.read_bytes(4).decode("utf-8")
         self.size = self.read_u32()
 
         padding_length = 4 - (self.size % 4) if self.size % 4 > 0 else 0
@@ -84,8 +83,8 @@ class Reader:
 
 
 
-    def read_child(self, child_id: str):
-        child = Reader(self.file, chunk_id=child_id, parent=self, indent=int(len(self.indent) / 2) + 1)
+    def read_child(self):
+        child = Reader(self.file, parent=self, indent=int(len(self.indent) / 2) + 1)
         return child
 
 
@@ -103,16 +102,4 @@ class Reader:
     	return self.end_pos - self.file.tell() >= 8
 
 
-
     MAX_SIZE: int = 2147483647 - 8
-
-'''
-with open("/Users/will/Desktop/spacedoortest/spa1_prop_impdoor.msh", "rb") as tst_stream:
-    with Reader(tst_stream, "HEDR") as hedr:
-        print(hedr.peak_next_header())
-'''
-
-
-
-
-

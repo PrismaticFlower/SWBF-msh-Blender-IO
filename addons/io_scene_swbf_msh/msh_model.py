@@ -12,6 +12,7 @@ class ModelType(Enum):
     CLOTH = 2
     BONE = 3
     STATIC = 4
+    SHADOWVOLUME = 6
 
 class CollisionPrimitiveShape(Enum):
     SPHERE = 0

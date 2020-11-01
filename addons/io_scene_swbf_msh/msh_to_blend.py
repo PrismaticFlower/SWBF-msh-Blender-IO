@@ -12,21 +12,18 @@ from .msh_model import *
 from .msh_model_utilities import *
 from .msh_utilities import *
 from .msh_model_gather import *
+from .crc import *
 
 
 
-def extract_models(models, materials_map):
+def extract_models(scene: Scene, materials_map):
 
     model_map = {}
 
-    for model in sort_by_parent(models):
+    for model in sort_by_parent(scene.models):
 
-        if model.model_type != ModelType.STATIC:
-            new_obj = bpy.data.objects.new(model.name, None)
-            new_obj.empty_display_size = 1
-            new_obj.empty_display_type = 'PLAIN_AXES' 
-
-        else:  
+        if model.model_type == ModelType.STATIC:  
+            
             new_mesh = bpy.data.meshes.new(model.name)
             verts = []
             faces = []
@@ -67,10 +64,10 @@ def extract_models(models, materials_map):
 
             new_obj = bpy.data.objects.new(new_mesh.name, new_mesh)
 
+
             '''
             Assign Materials - will do per segment later...
             '''
-
             if mat_name:
                 material = materials_map[mat_name]
 
@@ -78,6 +75,12 @@ def extract_models(models, materials_map):
                     new_obj.data.materials[0] = material
                 else:
                     new_obj.data.materials.append(material)
+        
+        else:
+
+            new_obj = bpy.data.objects.new(model.name, None)
+            new_obj.empty_display_size = 1
+            new_obj.empty_display_type = 'PLAIN_AXES' 
 
 
 
@@ -104,7 +107,7 @@ def extract_materials(scene: Scene) -> Dict[str,bpy.types.Material]:
         new_mat.use_nodes = True
         bsdf = new_mat.node_tree.nodes["Principled BSDF"]
         texImage = new_mat.node_tree.nodes.new('ShaderNodeTexImage')
-        texImage.image = bpy.data.images.load("/Users/will/Desktop/grad.png")
+        texImage.image = bpy.data.images.load("/Users/will/Desktop/grad.jpg")
         new_mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
 
         extracted_materials[material_name] = new_mat
@@ -114,9 +117,9 @@ def extract_materials(scene: Scene) -> Dict[str,bpy.types.Material]:
 
 
 def extract_scene(scene: Scene):
-
-    matmap = extract_materials(scene)
-    extract_models(scene.models, matmap)
+    return None
+    #matmap = extract_materials(scene)
+    #extract_models(scene, matmap)
 
 
 
