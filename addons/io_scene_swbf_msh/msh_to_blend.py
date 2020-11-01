@@ -14,6 +14,8 @@ from .msh_utilities import *
 from .msh_model_gather import *
 from .crc import *
 
+import os
+
 
 
 def extract_models(scene: Scene, materials_map):
@@ -21,9 +23,13 @@ def extract_models(scene: Scene, materials_map):
     model_map = {}
 
     for model in sort_by_parent(scene.models):
+        new_obj = None
 
-        if model.model_type == ModelType.STATIC:  
-            
+        if model.name.startswith("p_") or "collision" in model.name:
+            continue
+
+        if model.model_type == ModelType.STATIC or model.model_type == ModelType.SKIN:  
+
             new_mesh = bpy.data.meshes.new(model.name)
             verts = []
             faces = []
@@ -42,10 +48,11 @@ def extract_models(scene: Scene, materials_map):
                 offset += len(seg.positions)
 
             new_mesh.from_pydata(verts, [], faces)
+            
             new_mesh.update()
             new_mesh.validate()
 
-            
+            '''
             edit_mesh = bmesh.new()
             edit_mesh.from_mesh(new_mesh)
 
@@ -59,11 +66,11 @@ def extract_models(scene: Scene, materials_map):
                     loop[uvlayer].uv = tuple([texcoord.x, texcoord.y])
 
             edit_mesh.to_mesh(new_mesh)
-            edit_mesh.free()  
+            edit_mesh.free() 
+            '''
+            
                   
-
             new_obj = bpy.data.objects.new(new_mesh.name, new_mesh)
-
 
             '''
             Assign Materials - will do per segment later...
@@ -97,7 +104,7 @@ def extract_models(scene: Scene, materials_map):
 
 
 
-def extract_materials(scene: Scene) -> Dict[str,bpy.types.Material]:
+def extract_materials(folder_path: str, scene: Scene) -> Dict[str,bpy.types.Material]:
 
     extracted_materials = {}
 
@@ -106,9 +113,16 @@ def extract_materials(scene: Scene) -> Dict[str,bpy.types.Material]:
         new_mat = bpy.data.materials.new(name=material_name)
         new_mat.use_nodes = True
         bsdf = new_mat.node_tree.nodes["Principled BSDF"]
-        texImage = new_mat.node_tree.nodes.new('ShaderNodeTexImage')
-        texImage.image = bpy.data.images.load("/Users/will/Desktop/grad.jpg")
-        new_mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
+
+        tex_path_def = os.path.join(folder_path, scene.materials[material_name].texture0)
+        tex_path_alt = os.path.join(folder_path, "PC", scene.materials[material_name].texture0)
+
+        tex_path = tex_path_def if os.path.exists(tex_path_def) else tex_path_alt
+
+        if os.path.exists(tex_path):
+            texImage = new_mat.node_tree.nodes.new('ShaderNodeTexImage')
+            texImage.image = bpy.data.images.load(tex_path)
+            new_mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
 
         extracted_materials[material_name] = new_mat
 
@@ -116,10 +130,12 @@ def extract_materials(scene: Scene) -> Dict[str,bpy.types.Material]:
 
 
 
-def extract_scene(scene: Scene):
-    return None
-    #matmap = extract_materials(scene)
-    #extract_models(scene, matmap)
+def extract_scene(filepath: str, scene: Scene):
+
+    folder = os.path.join(os.path.dirname(filepath),"")
+
+    matmap = extract_materials(folder,scene)
+    extract_models(scene, matmap)
 
 
 

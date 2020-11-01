@@ -10,6 +10,8 @@ from .msh_utilities import *
 
 from .crc import *
 
+envls = []
+
 def read_scene(input_file) -> Scene:
 
     scene = Scene()
@@ -52,19 +54,26 @@ def read_scene(input_file) -> Scene:
                                 pass
 
             elif "SKL2" in next_header:
-            	with hedr.read_child() as skl2:
-            		num_bones = skl2.read_u32()
-            		scene.skeleton = [skl2.read_u32(5)[0] for i in range(num_bones)]
-            	print("Skeleton models: ")
-            	for crc_hash in scene.skeleton:
-            		for model in scene.models:
-            			if crc_hash == crc(model.name):
-            				print("\t" + model.name + " with type: " + str(model.model_type))
+                with hedr.read_child() as skl2:
+                    num_bones = skl2.read_u32()
+                    scene.skeleton = [skl2.read_u32(5)[0] for i in range(num_bones)]
+                print("Skeleton models: ")
+                for crc_hash in scene.skeleton:
+                    for model in scene.models:
+                        if crc_hash == crc(model.name):
+                            print("\t" + model.name + " with type: " + str(model.model_type))
 
+            elif "ANM2" in next_header:
+                with hedr.read_child() as anm2:
+                    _read_anm2(anm2, scene.models)
 
             else:
-                with hedr.read_child() as unknown:
+                with hedr.read_child() as null:
                     pass
+
+    print("Models indexed by ENVLs: ")
+    for envl_index in set(envls):
+        print("\t" + scene.models[envl_index].name)
 
     return scene
 
@@ -164,12 +173,23 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
         elif "GEOM" in next_header:
             model.geometry = []
             with modl.read_child() as geom:
+                while geom.could_have_child():
+                    next_header_geom = geom.peak_next_header()
 
-                next_header_modl = geom.peak_next_header()
+                    if "SEGM" in next_header_geom:
+                        with geom.read_child() as segm:
+                           model.geometry.append(_read_segm(segm, materials_list))
 
-                if "SEGM" in next_header_modl:
-                    with geom.read_child() as segm:
-                       model.geometry.append(_read_segm(segm, materials_list))
+                    elif "ENVL" in next_header_geom:
+                        with geom.read_child() as envl:
+                            global envls
+                            num_indicies = envl.read_u32()
+                            print("reading ENVL with " + str(num_indicies) + " indicies")
+                            envls += [envl.read_u32() for _ in range(num_indicies)]
+                    
+                    else:
+                        with geom.read_child() as null:
+                            pass
 
         elif "SWCI" in next_header:
             prim = CollisionPrimitive()
@@ -191,7 +211,7 @@ def _read_tran(tran: Reader) -> ModelTransform:
 
     xform = ModelTransform()
 
-    tran.skip_bytes(4 * 3) #ignore scale
+    tran.skip_bytes(12) #ignore scale
 
     rot = tran.read_f32(4)
     xform.rotation = Quaternion((rot[3], rot[0], rot[1], rot[2]))
@@ -264,11 +284,47 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
             if segm.read_u16 != 0: #trailing 0 bug https://schlechtwetterfront.github.io/ze_filetypes/msh.html#STRP
                 segm.skip_bytes(-2)
 
+        elif "WGHT" in next_header:
+            with segm.read_child() as null:
+                pass
+
         else:
             with segm.read_child() as unknown:
                 pass
 
     return geometry_seg
+
+
+
+def _read_anm2(anm2: Reader, models):
+
+    hash_dict = {}
+    for model in models:
+        hash_dict[crc(model.name)] = model.name
+
+    while anm2.could_have_child():
+
+        next_header = anm2.peak_next_header()
+
+        if "CYCL" in next_header:
+            with anm2.read_child() as cycl:
+                pass
+
+        elif "KFR3" in next_header:
+            with anm2.read_child() as kfr3:
+
+                num_bones = kfr3.read_u32()
+
+                for _ in range(num_bones):
+
+                    kfr3.read_u32()
+
+                    frametype = kfr3.read_u32()
+
+                    num_loc_frames = kfr3.read_u32()
+                    num_rot_frames = kfr3.read_u32()
+
+                    kfr3.skip_bytes(16 * num_loc_frames + 20 * num_rot_frames)
 
 
 

@@ -16,9 +16,9 @@ class ModelType(Enum):
 
 class CollisionPrimitiveShape(Enum):
     SPHERE = 0
-    # ELLIPSOID = 1
+    ELLIPSOID = 1
     CYLINDER = 2
-    # MESH = 3
+    MESH = 3
     BOX = 4
 
 @dataclass

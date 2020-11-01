@@ -62,6 +62,7 @@ from .msh_scene_read import read_scene
 from .msh_material_properties import *
 from .msh_to_blend import *
 
+
 class ExportMSH(Operator, ExportHelper):
     """ Export the current scene as a SWBF .msh file. """
 
@@ -134,7 +135,7 @@ class ImportMSH(Operator, ImportHelper):
 
     def execute(self, context):
         with open(self.filepath, 'rb') as input_file:
-            extract_scene(read_scene(input_file))
+            extract_scene(self.filepath, read_scene(input_file))
         return {'FINISHED'}
 
 def menu_func_import(self, context):
