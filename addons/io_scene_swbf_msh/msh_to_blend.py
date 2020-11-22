@@ -18,6 +18,10 @@ import os
 
 
 
+#def import_anim(scene : Scene):
+
+
+
 
 def refined_skeleton_to_armature(refined_skeleton : List[Model], model_map):
 
@@ -42,18 +46,19 @@ def refined_skeleton_to_armature(refined_skeleton : List[Model], model_map):
         bone_children = [b for b in get_model_children(bone, refined_skeleton)]
         
         if bone_children:
-            edit_bone.tail = Vector((0.0,0.0,0.0))
+            edit_bone.tail = Vector((-0.00001,0.0,0.0))
             for bone_child in bone_children:
                 edit_bone.tail += model_map[bone_child.name].matrix_world.translation
-            edit_bone.tail = edit_bone.tail / len(bone_children)
+            edit_bone.tail = edit_bone.tail / len(bone_children) 
         else:
             edit_bone.tail = model_map[bone.name].matrix_world @ Vector((-0.2,0.0,0.0))
-
 
 
     bpy.ops.object.mode_set(mode='OBJECT')
     armature_obj.select_set(True)
     bpy.context.view_layer.update() 
+
+    return armature_obj
 
 
 
@@ -63,19 +68,27 @@ def refined_skeleton_to_armature(refined_skeleton : List[Model], model_map):
 def extract_refined_skeleton(scene: Scene):
 
     model_dict = {}
-    children_dict = {}
     skeleton_models = []
+
 
     for model in scene.models:
         model_dict[model.name] = model
-        children_dict[model.name] = []
 
+        if model.geometry:
+            for seg in model.geometry:
+                if seg.weights:
+                    for weight_set in seg.weights:
+                        for weight in weight_set:
+                            model_weighted_to = scene.models[weight[0]]
+
+                            if crc(model_weighted_to.name) not in scene.skeleton:
+                                scene.skeleton.append(crc(model_weighted_to.name))
+                                print("Found additional bone: " + model_weighted_to.name)
+                    
     for model in scene.models:
-        if model.parent:
-            children_dict[model.parent].append(model)
-
         if crc(model.name) in scene.skeleton:
             skeleton_models.append(model)
+
 
     refined_skeleton_models = []
 
@@ -88,10 +101,11 @@ def extract_refined_skeleton(scene: Scene):
 
             while True:
 
-                if crc(curr_ancestor.name) in scene.skeleton or "dummyroot" in curr_ancestor.name.lower():
+                if crc(curr_ancestor.name) in scene.skeleton or curr_ancestor.name == scene.models[0].name:
                     new_model = Model()
                     new_model.name = bone.name
-                    new_model.parent = curr_ancestor.name if "dummyroot" not in curr_ancestor.name.lower() else ""
+                    print("Adding {} to refined skeleton...".format(bone.name))
+                    new_model.parent = curr_ancestor.name if curr_ancestor.name != scene.models[0].name else ""
 
                     loc, rot, _ = stacked_transform.decompose()
 
@@ -121,9 +135,6 @@ def extract_models(scene: Scene, materials_map):
 
     for model in sort_by_parent(scene.models):
         new_obj = None
-
-        if model.name.startswith("p_") or "collision" in model.name or model.name.startswith("c_") or model.name.startswith("sv_"):
-            continue
 
         if model.model_type == ModelType.STATIC or model.model_type == ModelType.SKIN:  
 
@@ -183,8 +194,9 @@ def extract_models(scene: Scene, materials_map):
             new_obj = bpy.data.objects.new(new_mesh.name, new_mesh)
 
 
+            vertex_groups_indicies = {}
+
             for offset in weights_offsets:
-                vertex_groups_indicies = {}
                 for i, weight_set in enumerate(weights_offsets[offset]):
                     for weight in weight_set:
                         index = weight[0]
@@ -213,7 +225,6 @@ def extract_models(scene: Scene, materials_map):
             new_obj.empty_display_type = 'PLAIN_AXES' 
 
 
-
         model_map[model.name] = new_obj
 
         if model.parent:
@@ -224,6 +235,7 @@ def extract_models(scene: Scene, materials_map):
         new_obj.rotation_quaternion = convert_rotation_space(model.transform.rotation)
 
         bpy.context.collection.objects.link(new_obj)
+
 
     return model_map
 
@@ -258,20 +270,62 @@ def extract_materials(folder_path: str, scene: Scene) -> Dict[str,bpy.types.Mate
 def extract_scene(filepath: str, scene: Scene):
 
     folder = os.path.join(os.path.dirname(filepath),"")
-
-    matmap = extract_materials(folder,scene)
-
-    if scene.skeleton:
-        #print("Skeleton models: ")
-        for model in scene.models:
-            if crc(model.name) in scene.skeleton:
-                pass#print("\tName: " + model.name + " Parent: " + model.parent)
+    matmap = extract_materials(folder, scene)
 
     model_map = extract_models(scene, matmap)
 
-
     skel = extract_refined_skeleton(scene)
-    refined_skeleton_to_armature(skel, model_map)
+    armature = refined_skeleton_to_armature(skel, model_map)
+
+    for model in scene.models:
+        reparent_obj = None
+        if model.model_type == ModelType.SKIN:
+
+            if model.parent:
+                reparent_obj = model_map[model.parent]
+
+            skin_obj = model_map[model.name]
+            skin_obj.select_set(True)
+            armature.select_set(True)
+            bpy.context.view_layer.objects.active = armature
+
+            bpy.ops.object.parent_clear(type='CLEAR')
+            bpy.ops.object.parent_set(type='ARMATURE')
+
+            skin_obj.select_set(False)
+            armature.select_set(False)
+            bpy.context.view_layer.objects.active = None
+
+    if reparent_obj is not None:
+        armature.select_set(True)
+        reparent_obj.select_set(True)
+        bpy.context.view_layer.objects.active = reparent_obj
+        bpy.ops.object.parent_set(type='OBJECT')
+
+        armature.select_set(False)
+        reparent_obj.select_set(False)
+        bpy.context.view_layer.objects.active = None
+
+
+    if armature is not None:
+        for bone in armature.data.bones:
+            model_map[bone.name].select_set(True)
+        bpy.ops.object.delete()
+
+    for model in scene.models:
+        if model.name in bpy.data.objects:
+            if model.hidden and len(bpy.data.objects[model.name].children) == 0:
+                bpy.data.objects[model.name].hide_set(True)
+
+
+
+
+
+
+
+
+
+
 
 
 
