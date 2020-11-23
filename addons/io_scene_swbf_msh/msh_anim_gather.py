@@ -27,6 +27,7 @@ def extract_anim(armature: bpy.types.Armature) -> Animation:
 
     anim.end_index = num_frames - 1
     
+    anim.bone_transforms["DummyRoot"] = []
     for bone in armature.data.bones:
         anim.bone_transforms[bone.name] = []
 
@@ -35,6 +36,7 @@ def extract_anim(armature: bpy.types.Armature) -> Animation:
         frame_time = framerange.x + frame * increment
         bpy.context.scene.frame_set(frame_time)
 
+        anim.bone_transforms["DummyRoot"].append(ModelTransform())
         for bone in armature.pose.bones:
 
             transform = bone.matrix

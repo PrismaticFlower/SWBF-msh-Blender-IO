@@ -83,7 +83,7 @@ class Animation:
     name: str = "fullanimation"
     bone_transforms: Dict[str, List[ModelTransform]] = field(default_factory=dict)
 
-    framerate: float = 10.0
+    framerate: float = 29.97
     start_index : int = 0
     end_index   : int = 0
     

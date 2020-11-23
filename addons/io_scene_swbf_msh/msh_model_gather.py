@@ -36,6 +36,7 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
 
         if obj.type == "ARMATURE":
             models_list += expand_armature(obj)
+            continue
 
         if skeleton_only:
             continue
@@ -52,7 +53,10 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
             transform = obj.parent.data.bones[obj.parent_bone].matrix_local.inverted() @ transform
         else:
             if obj.parent is not None:
-                model.parent = obj.parent.name
+                if obj.parent.type == "ARMATURE":
+                    model.parent = obj.parent.parent.name
+                else:
+                    model.parent = obj.parent.name
 
         local_translation, local_rotation, _ = transform.decompose()
         model.transform.rotation = convert_rotation_space(local_rotation)  
@@ -368,7 +372,7 @@ def expand_armature(obj: bpy.types.Object) -> List[Model]:
             transform = bone.parent.matrix_local.inverted() @ transform
             model.parent = bone.parent.name
         else:
-            model.parent = obj.name
+            model.parent = "tst_prop"
 
         local_translation, local_rotation, _ = transform.decompose()
 

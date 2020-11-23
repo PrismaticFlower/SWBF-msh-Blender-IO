@@ -48,7 +48,7 @@ def save_scene(output_file, scene: Scene, is_animated: bool):
 
 def _write_sinf(sinf: Writer, scene: Scene):
     with sinf.create_child("NAME") as name:
-        name.write_string(scene.name)
+        name.write_string("spa1_prop_impdoor_rig")
 
     with sinf.create_child("FRAM") as fram:
         min_index = 0
@@ -58,8 +58,8 @@ def _write_sinf(sinf: Writer, scene: Scene):
             min_index = min([anim.start_index for anim in scene.anims])
             max_index = min([anim.end_index for anim in scene.anims])
 
-        fram.write_i32(min_index, max_index)
-        fram.write_f32(10.0)
+        fram.write_i32(0, 1)
+        fram.write_f32(29.97)
 
     with sinf.create_child("BBOX") as bbox:
         aabb = create_scene_aabb(scene)
@@ -100,7 +100,7 @@ def _write_matd(matd: Writer, material_name: str, material: Material):
         data.write_f32(1.0, 1.0, 1.0, 1.0) # Diffuse Color (Seams to get ignored by modelmunge)
         data.write_f32(material.specular_color[0], material.specular_color[1],
                        material.specular_color[2], 1.0)
-        data.write_f32(0.0, 0.0, 0.0, 1.0) # Ambient Color (Seams to get ignored by modelmunge and Zero(?))
+        data.write_f32(1.0, 1.0, 1.0, 1.0) # Ambient Color (Seams to get ignored by modelmunge and Zero(?))
         data.write_f32(50.0) # Specular Exponent/Decay (Gets ignored by RedEngine in SWBFII for all known materials)    
     with matd.create_child("ATRB") as atrb:
         atrb.write_u8(material.flags.value)
@@ -135,9 +135,13 @@ def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str
         with modl.create_child("PRNT") as prnt:
             prnt.write_string(model.parent)
 
-    if model.hidden:
-        with modl.create_child("FLGS") as flgs:
-            flgs.write_u32(1)
+    if model.model_type != ModelType.NULL and model.model_type != ModelType.BONE:
+        if model.hidden or "Dummy" in model.name or "hp_" in model.name:
+            with modl.create_child("FLGS") as flgs:
+                flgs.write_u32(1)
+            for seg in model.geometry:
+                seg.texcoords = None  
+
 
     with modl.create_child("TRAN") as tran:
         _write_tran(tran, model.transform)
@@ -198,11 +202,12 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
             for color in segment.colors:
                 clrl.write_u32(pack_color(color))
 
-    with segm.create_child("UV0L") as uv0l:
-        uv0l.write_u32(len(segment.texcoords))
+    if segment.texcoords is not None:
+        with segm.create_child("UV0L") as uv0l:
+            uv0l.write_u32(len(segment.texcoords))
 
-        for texcoord in segment.texcoords:
-            uv0l.write_f32(texcoord.x, texcoord.y)
+            for texcoord in segment.texcoords:
+                uv0l.write_f32(texcoord.x, texcoord.y)
 
     with segm.create_child("NDXL") as ndxl:
         ndxl.write_u32(len(segment.polygons))
@@ -234,8 +239,6 @@ SKINNING CHUNKS
 def _write_wght(wght: Writer, weights: List[List[VertexWeight]]):
     wght.write_u32(len(weights))
 
-    print("Writing WGHT: ")
-
     for weight_list in weights:
         weight_list += [VertexWeight(0.0, 0)] * 4
         weight_list = sorted(weight_list, key=lambda w: w.weight, reverse=True)
@@ -243,24 +246,13 @@ def _write_wght(wght: Writer, weights: List[List[VertexWeight]]):
 
         total_weight = max(sum(map(lambda w: w.weight, weight_list)), 1e-5)
 
-        print_str = ""
-
         for weight in weight_list:
-   
-           print_str += "({}, {})  ".format(weight.bone, weight.weight / total_weight)
-
-           wght.write_i32(weight.bone)
-           wght.write_f32(weight.weight / total_weight)
-
-        print("  {}".format(print_str))
+            wght.write_i32(weight.bone)
+            wght.write_f32(weight.weight / total_weight)
 
 def _write_envl(envl: Writer, model: Model, model_index: Dict[str, int]):
     envl.write_u32(len(model.bone_map))
-
-    print("Writing ENVL: ")
-
     for bone_name in model.bone_map:
-        print("  {:10} Index: {}".format(bone_name, model_index[bone_name]))
         envl.write_u32(model_index[bone_name])
 
 '''
