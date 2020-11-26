@@ -2,7 +2,7 @@
     saved to a .msh file. """
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Tuple
 from enum import Enum
 from mathutils import Vector, Quaternion
 
@@ -43,6 +43,8 @@ class GeometrySegment:
     polygons: List[List[int]] = field(default_factory=list)
     triangles: List[List[int]] = field(default_factory=list)
     triangle_strips: List[List[int]] = None
+
+    weights: List[List[Tuple[int, float]]] = None
 
 @dataclass
 class CollisionPrimitive:

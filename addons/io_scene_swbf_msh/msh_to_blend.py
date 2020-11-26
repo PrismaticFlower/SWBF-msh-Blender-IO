@@ -18,6 +18,102 @@ import os
 
 
 
+
+def refined_skeleton_to_armature(refined_skeleton : List[Model], model_map):
+
+    armature = bpy.data.armatures.new("skeleton")
+    armature_obj = bpy.data.objects.new("skeleton", armature)
+
+    bpy.context.view_layer.active_layer_collection.collection.objects.link(armature_obj)
+    armature_obj.select_set(True)
+
+    bpy.context.view_layer.objects.active = armature_obj
+    bpy.ops.object.mode_set(mode='EDIT')
+
+    for bone in refined_skeleton:
+
+        edit_bone = armature.edit_bones.new(bone.name)
+
+        if bone.parent:
+            edit_bone.parent = armature.edit_bones[bone.parent]
+
+        edit_bone.head = model_map[bone.name].matrix_world.translation
+
+        bone_children = [b for b in get_model_children(bone, refined_skeleton)]
+        
+        if len(bone_children) > 0:
+            edit_bone.tail = Vector((0.0,0.0,0.0))
+            for bone_child in bone_children:
+                edit_bone.tail += model_map[bone_child.name].matrix_world.translation
+            edit_bone.tail = edit_bone.tail / len(bone_children)
+        else:
+            edit_bone.tail = model_map[bone.name].matrix_world @ Vector((-0.2,0.0,0.0))
+
+
+    bpy.ops.object.mode_set(mode='OBJECT')
+    armature_obj.select_set(True)
+    bpy.context.view_layer.update() 
+
+
+
+
+
+
+def extract_refined_skeleton(scene: Scene):
+
+    model_dict = {}
+    children_dict = {}
+    skeleton_models = []
+
+    for model in scene.models:
+        model_dict[model.name] = model
+        children_dict[model.name] = []
+
+    for model in scene.models:
+        if model.parent:
+            children_dict[model.parent].append(model)
+
+        if crc(model.name) in scene.skeleton:
+            skeleton_models.append(model)
+
+    refined_skeleton_models = []
+
+    for bone in skeleton_models:
+
+        if bone.parent:
+
+            curr_ancestor = model_dict[bone.parent]
+            stacked_transform = model_transform_to_matrix(bone.transform)
+
+            while True:
+
+                if crc(curr_ancestor.name) in scene.skeleton or "dummyroot" in curr_ancestor.name.lower():
+                    new_model = Model()
+                    new_model.name = bone.name
+                    new_model.parent = curr_ancestor.name if "dummyroot" not in curr_ancestor.name.lower() else ""
+
+                    loc, rot, _ = stacked_transform.decompose()
+
+                    new_model.transform.rotation = rot
+                    new_model.transform.translation = loc
+                    
+                    refined_skeleton_models.append(new_model)
+                    break
+
+                else:
+                    curr_ancestor = model_dict[curr_ancestor.parent]
+                    stacked_transform = model_transform_to_matrix(curr_ancestor.transform) @ stacked_transform
+
+    return sort_by_parent(refined_skeleton_models)                  
+
+
+
+
+
+
+
+
+
 def extract_models(scene: Scene, materials_map):
 
     model_map = {}
@@ -25,7 +121,13 @@ def extract_models(scene: Scene, materials_map):
     for model in sort_by_parent(scene.models):
         new_obj = None
 
-        if model.name.startswith("p_") or "collision" in model.name:
+        if "bone_l_toe" in model.name:
+            loc = get_model_world_matrix(model, scene.models).translation
+            print("World bone_l_toe: " + str(loc))
+
+
+
+        if model.name.startswith("p_") or "collision" in model.name or model.name.startswith("c_") or model.name.startswith("sv_"):
             continue
 
         if model.model_type == ModelType.STATIC or model.model_type == ModelType.SKIN:  
@@ -37,37 +139,47 @@ def extract_models(scene: Scene, materials_map):
 
             mat_name = ""
 
+            full_texcoords = []
+
             for i,seg in enumerate(model.geometry):
 
                 if i == 0:
                     mat_name = seg.material_name
 
                 verts += [tuple(convert_vector_space(v)) for v in seg.positions]
+
+                if seg.texcoords is not None:
+                    full_texcoords += seg.texcoords
+                else:
+                    full_texcoords += [(0.0,0.0) for _ in range(len(seg.positions))]
+
                 faces += [tuple([ind + offset for ind in tri]) for tri in seg.triangles]
 
                 offset += len(seg.positions)
 
             new_mesh.from_pydata(verts, [], faces)
-            
             new_mesh.update()
             new_mesh.validate()
 
-            '''
-            edit_mesh = bmesh.new()
-            edit_mesh.from_mesh(new_mesh)
+            
+            if len(full_texcoords) > 0:
 
-            uvlayer = edit_mesh.loops.layers.uv.verify()
+                edit_mesh = bmesh.new()
+                edit_mesh.from_mesh(new_mesh)
 
-            for edit_mesh_face in edit_mesh.faces:
-                mesh_face = faces[edit_mesh_face.index]
+                uvlayer = edit_mesh.loops.layers.uv.verify()
 
-                for i,loop in enumerate(edit_mesh_face.loops):
-                    texcoord = seg.texcoords[mesh_face[i]]
-                    loop[uvlayer].uv = tuple([texcoord.x, texcoord.y])
+                for edit_mesh_face in edit_mesh.faces:
+                    mesh_face = faces[edit_mesh_face.index]
 
-            edit_mesh.to_mesh(new_mesh)
-            edit_mesh.free() 
-            '''
+                    for i,loop in enumerate(edit_mesh_face.loops):
+
+                        texcoord = full_texcoords[mesh_face[i]]
+                        loop[uvlayer].uv = tuple([texcoord.x, texcoord.y])
+
+                edit_mesh.to_mesh(new_mesh)
+                edit_mesh.free() 
+            
             
                   
             new_obj = bpy.data.objects.new(new_mesh.name, new_mesh)
@@ -102,6 +214,8 @@ def extract_models(scene: Scene, materials_map):
 
         bpy.context.collection.objects.link(new_obj)
 
+    return model_map
+
 
 
 def extract_materials(folder_path: str, scene: Scene) -> Dict[str,bpy.types.Material]:
@@ -135,7 +249,13 @@ def extract_scene(filepath: str, scene: Scene):
     folder = os.path.join(os.path.dirname(filepath),"")
 
     matmap = extract_materials(folder,scene)
-    extract_models(scene, matmap)
+
+    model_map = extract_models(scene, matmap)
+
+
+    skel = extract_refined_skeleton(scene)
+    refined_skeleton_to_armature(skel, model_map)
+
 
 
 

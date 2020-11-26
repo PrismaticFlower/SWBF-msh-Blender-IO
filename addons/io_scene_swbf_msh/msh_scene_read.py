@@ -57,11 +57,12 @@ def read_scene(input_file) -> Scene:
                 with hedr.read_child() as skl2:
                     num_bones = skl2.read_u32()
                     scene.skeleton = [skl2.read_u32(5)[0] for i in range(num_bones)]
-                print("Skeleton models: ")
+                #print("Skeleton models: ")
                 for crc_hash in scene.skeleton:
                     for model in scene.models:
                         if crc_hash == crc(model.name):
-                            print("\t" + model.name + " with type: " + str(model.model_type))
+                            pass
+                            #print("\t" + model.name + " with type: " + str(model.model_type))
 
             elif "ANM2" in next_header:
                 with hedr.read_child() as anm2:
@@ -70,11 +71,7 @@ def read_scene(input_file) -> Scene:
             else:
                 with hedr.read_child() as null:
                     pass
-
-    print("Models indexed by ENVLs: ")
-    for envl_index in set(envls):
-        print("\t" + scene.models[envl_index].name)
-
+                    
     return scene
 
 
@@ -285,9 +282,24 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                 segm.skip_bytes(-2)
 
         elif "WGHT" in next_header:
-            with segm.read_child() as null:
+            with segm.read_child() as wght:
                 pass
+                '''
+                geometry_seg.weights = []
 
+                num_weights = wght.read_u32()
+
+                for _ in range(num_weights):
+                    weight_set = []
+                    for _ in range(4):
+                        index = wght.read_u32()
+                        value = wght.read_f32()
+
+                        if value > 0.000001:
+                            weight_set.append((index,value))
+
+                    geometry_seg.weights.append(weight_set)
+                '''
         else:
             with segm.read_child() as unknown:
                 pass

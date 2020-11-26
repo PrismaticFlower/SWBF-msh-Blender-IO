@@ -19,7 +19,7 @@ class Reader:
         padding_length = 4 - (self.size % 4) if self.size % 4 > 0 else 0
         self.end_pos = self.size_pos + padding_length + self.size + 8
 
-        print(self.indent + "Begin " + self.header + ", Size: " + str(self.size) + ", Pos: " + str(self.size_pos))
+        #print(self.indent + "Begin " + self.header + ", Size: " + str(self.size) + ", Pos: " + str(self.size_pos))
 
         return self
 
@@ -28,7 +28,7 @@ class Reader:
         if self.size > self.MAX_SIZE:
             raise OverflowError(f".msh file overflowed max size. size = {self.size} MAX_SIZE = {self.MAX_SIZE}")
 
-        print(self.indent + "End   " + self.header)
+        #print(self.indent + "End   " + self.header)
         self.file.seek(self.end_pos)
 
 
