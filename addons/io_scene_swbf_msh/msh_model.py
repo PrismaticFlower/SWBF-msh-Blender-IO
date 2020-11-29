@@ -76,14 +76,28 @@ class Model:
     geometry: List[GeometrySegment] = None
     collisionprimitive: CollisionPrimitive = None
 
+
+@dataclass
+class RotationFrame:
+
+    index : int = 0
+    rotation : Quaternion = field(default_factory=Quaternion)
+
+
+@dataclass
+class TranslationFrame:
+
+    index : int = 0
+    translation : Vector = field(default_factory=Vector)  
+
+
 @dataclass
 class Animation:
     """ Class representing 'CYCL' + 'KFR3' sections in a .msh file """
 
     name: str = "fullanimation"
-    bone_transforms: Dict[str, List[ModelTransform]] = field(default_factory=dict)
+    bone_frames: Dict[str, Tuple[List[TranslationFrame], List[RotationFrame]]] = field(default_factory=dict)
 
     framerate: float = 29.97
     start_index : int = 0
     end_index   : int = 0
-    

@@ -248,14 +248,14 @@ def _write_envl(envl: Writer, model: Model, model_index: Dict[str, int]):
 SKELETON CHUNKS
 '''
 def _write_bln2(bln2: Writer, scene: Scene):
-    bones = scene.anims[0].bone_transforms.keys()
+    bones = scene.anims[0].bone_frames.keys()
     bln2.write_u32(len(bones))
 
     for boneName in bones:
         bln2.write_u32(crc(boneName), 0) 
 
 def _write_skl2(skl2: Writer, scene: Scene):
-    bones = scene.anims[0].bone_transforms.keys()
+    bones = scene.anims[0].bone_frames.keys()
     skl2.write_u32(len(bones))
 
     for boneName in bones:
@@ -282,22 +282,20 @@ def _write_anm2(anm2: Writer, anim: Animation):
 
     with anm2.create_child("KFR3") as kfr3:
         
-        kfr3.write_u32(len(anim.bone_transforms.keys()))
+        kfr3.write_u32(len(anim.bone_frames))
 
-        for boneName in anim.bone_transforms.keys():
+        for boneName in anim.bone_frames:
             kfr3.write_u32(crc(boneName))
             kfr3.write_u32(0) #what is keyframe type?
 
-            num_frames = 1 + anim.end_index - anim.start_index  
-            kfr3.write_u32(num_frames, num_frames) #basic testing
+            translation_frames, rotation_frames = anim.bone_frames[boneName]
 
-            for i, xform in enumerate(anim.bone_transforms[boneName]):
-                kfr3.write_u32(i)
-                kfr3.write_f32(xform.translation.x, xform.translation.y, xform.translation.z)
+            kfr3.write_u32(len(translation_frames), len(rotation_frames))
 
-            for i, xform in enumerate(anim.bone_transforms[boneName]):
-                kfr3.write_u32(i)
-                kfr3.write_f32(xform.rotation.x, xform.rotation.y, xform.rotation.z, xform.rotation.w)
+            for frame in translation_frames:
+                kfr3.write_u32(frame.index)
+                kfr3.write_f32(frame.translation.x, frame.translation.y, frame.translation.z)
 
-
-
+            for frame in rotation_frames:
+                kfr3.write_u32(frame.index)
+                kfr3.write_f32(frame.rotation.x, frame.rotation.y, frame.rotation.z, frame.rotation.w)

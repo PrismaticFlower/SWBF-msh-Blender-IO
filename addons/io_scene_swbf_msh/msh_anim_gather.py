@@ -27,19 +27,23 @@ def extract_anim(armature: bpy.types.Armature) -> Animation:
 
     anim.end_index = num_frames - 1
     
-    anim.bone_transforms["DummyRoot"] = []
+    anim.bone_frames["DummyRoot"] = ([], [])
     for bone in armature.data.bones:
-        anim.bone_transforms[bone.name] = []
+        anim.bone_frames[bone.name] = ([], [])
 
     for frame in range(num_frames):
-
-        #if frame % 10 == 0:
-        #    print("Sample frame {}:".format(frame))
-
+        
         frame_time = framerange.x + frame * increment
         bpy.context.scene.frame_set(frame_time)
 
-        anim.bone_transforms["DummyRoot"].append(ModelTransform())
+
+        rframe_dummy = RotationFrame(frame, convert_rotation_space(Quaternion()))
+        tframe_dummy = TranslationFrame(frame, Vector((0.0,0.0,0.0)))
+
+        anim.bone_frames["DummyRoot"][0].append(tframe_dummy)
+        anim.bone_frames["DummyRoot"][1].append(rframe_dummy)
+
+
         for bone in armature.pose.bones:
 
             transform = bone.matrix
@@ -49,13 +53,11 @@ def extract_anim(armature: bpy.types.Armature) -> Animation:
  
             loc, rot, _ = transform.decompose()
 
-            xform = ModelTransform()
-            xform.rotation = convert_rotation_space(rot)
-            xform.translation = convert_vector_space(loc)
+            rframe = RotationFrame(frame, convert_rotation_space(rot))
+            tframe = TranslationFrame(frame, convert_vector_space(loc))
 
-            #if frame % 10 == 0:
-            #    print("\t{:10}: loc {:15} rot {:15}".format(bone.name, vec_to_str(xform.translation), quat_to_str(xform.rotation)))
+            anim.bone_frames[bone.name][0].append(tframe)
+            anim.bone_frames[bone.name][1].append(rframe)
 
-            anim.bone_transforms[bone.name].append(xform)
 
     return anim
