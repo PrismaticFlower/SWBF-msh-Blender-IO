@@ -32,7 +32,10 @@ def extract_anim(armature: bpy.types.Armature) -> Animation:
         anim.bone_transforms[bone.name] = []
 
     for frame in range(num_frames):
-        
+
+        #if frame % 10 == 0:
+        #    print("Sample frame {}:".format(frame))
+
         frame_time = framerange.x + frame * increment
         bpy.context.scene.frame_set(frame_time)
 
@@ -49,6 +52,9 @@ def extract_anim(armature: bpy.types.Armature) -> Animation:
             xform = ModelTransform()
             xform.rotation = convert_rotation_space(rot)
             xform.translation = convert_vector_space(loc)
+
+            #if frame % 10 == 0:
+            #    print("\t{:10}: loc {:15} rot {:15}".format(bone.name, vec_to_str(xform.translation), quat_to_str(xform.rotation)))
 
             anim.bone_transforms[bone.name].append(xform)
 

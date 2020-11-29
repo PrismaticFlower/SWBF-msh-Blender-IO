@@ -38,23 +38,37 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
             models_list += expand_armature(obj)
             continue
 
-        if skeleton_only:
-            continue
-
         model = Model()
         model.name = obj.name
-        model.model_type = get_model_type(obj)
+        model.model_type = get_model_type(obj, skeleton_only)
         model.hidden = get_is_model_hidden(obj)
 
         transform = obj.matrix_local
+        transform_reset = Matrix.Identity(4)
 
         if obj.parent_bone:
             model.parent = obj.parent_bone
-            transform = obj.parent.data.bones[obj.parent_bone].matrix_local.inverted() @ transform
+
+            # matrix_local, when called on an armature child also parented to a bone, appears to be broken.
+            # At the very least, the results contradict the docs...  
+            armature_relative_transform = obj.parent.matrix_world.inverted() @ obj.matrix_world
+            bone_relative_transform = obj.parent.data.bones[obj.parent_bone].matrix_local.inverted() @ armature_relative_transform 
+
+            transform = bone_relative_transform   
+
+            '''
+            # Since the transforms of direct bone children are discarded by ZEngine (but not ZEditor), we apply the transform
+            # before geometry extraction, then apply the inversion after. 
+            if obj.type in MESH_OBJECT_TYPES:
+                obj.data.transform(bone_relative_transform)
+                transform_reset = bone_relative_transform.inverted()
+                transform = Matrix.Identity(4)
+            '''
         else:
             if obj.parent is not None:
                 if obj.parent.type == "ARMATURE":
                     model.parent = obj.parent.parent.name
+                    transform = obj.parent.matrix_local @ transform
                 else:
                     model.parent = obj.parent.name
 
@@ -63,6 +77,7 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
         model.transform.translation = convert_vector_space(local_translation)
 
         if obj.type in MESH_OBJECT_TYPES:
+
             mesh = obj.to_mesh()
             model.geometry = create_mesh_geometry(mesh, obj.vertex_groups)
             obj.to_mesh_clear()
@@ -70,20 +85,24 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
             _, _, world_scale = obj.matrix_world.decompose()
             world_scale = convert_scale_space(world_scale)
             scale_segments(world_scale, model.geometry)
-    
+                
             for segment in model.geometry:
                 if len(segment.positions) > MAX_MSH_VERTEX_COUNT:
                     raise RuntimeError(f"Object '{obj.name}' has resulted in a .msh geometry segment that has "
                                        f"more than {MAX_MSH_VERTEX_COUNT} vertices! Split the object's mesh up "
                                        f"and try again!")
+            if obj.vertex_groups:
+                model.bone_map = [group.name for group in obj.vertex_groups]
+
+            obj.data.transform(transform_reset)
+
 
         if get_is_collision_primitive(obj):
             model.collisionprimitive = get_collision_primitive(obj)
 
-        if obj.vertex_groups:
-            model.bone_map = [group.name for group in obj.vertex_groups]
 
         models_list.append(model)
+
 
     return models_list
 
@@ -215,10 +234,10 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[Geomet
 
     return segments
 
-def get_model_type(obj: bpy.types.Object) -> ModelType:
+def get_model_type(obj: bpy.types.Object, skel_only: bool) -> ModelType:
     """ Get the ModelType for a Blender object. """
 
-    if obj.type in MESH_OBJECT_TYPES:
+    if obj.type in MESH_OBJECT_TYPES and not skel_only:
         if obj.vertex_groups:
             return ModelType.SKIN
         else:
@@ -372,7 +391,11 @@ def expand_armature(obj: bpy.types.Object) -> List[Model]:
             transform = bone.parent.matrix_local.inverted() @ transform
             model.parent = bone.parent.name
         else:
-            model.parent = "tst_prop"
+            model.parent = obj.parent.name
+            for child_obj in obj.children:
+                if child_obj.vertex_groups and not get_is_model_hidden(obj) and not obj.parent_bone:
+                    model.parent = child_obj.name
+
 
         local_translation, local_rotation, _ = transform.decompose()
 

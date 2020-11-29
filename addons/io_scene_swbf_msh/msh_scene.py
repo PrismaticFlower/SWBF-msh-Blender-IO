@@ -76,6 +76,10 @@ def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_t
     if "Armature" in bpy.context.scene.objects.keys():
         scene.anims = [extract_anim(bpy.context.scene.objects["Armature"])]
 
+    root = scene.models[0]
+    if skel_only and root.model_type == ModelType.NULL:
+    	inject_dummy_data(root)
+
     return scene
 
 

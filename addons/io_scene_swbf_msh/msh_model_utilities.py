@@ -7,6 +7,26 @@ import mathutils
 import math
 from mathutils import Vector, Matrix
 
+
+def inject_dummy_data(model : Model):
+    """  Adds a triangle and material to the scene root when exporting skeletons to satisfy ZenAsset.  """
+    model.hidden = True
+
+    dummy_seg = GeometrySegment()
+    dummy_seg.material_name = ""
+
+    dummy_seg.positions = [Vector((0.0,0.1,0.0)), Vector((0.1,0.0,0.0)), Vector((0.0,0.0,0.1))]
+    dummy_seg.normals = [Vector((0.0,1.0,0.0)), Vector((1.0,0.0,0.0)), Vector((0.0,0.0,1.0))]
+    dummy_seg.texcoords = [Vector((0.1,0.1)), Vector((0.2,0.2)), Vector((0.3,0.3))]
+    tri = [[0,1,2]]
+    dummy_seg.triangles = tri
+    dummy_seg.polygons = tri
+    dummy_seg.triangle_strips = tri
+
+    model.geometry = [dummy_seg]
+    model.model_type = ModelType.STATIC
+
+
 def scale_segments(scale: Vector, segments: List[GeometrySegment]):
     """ Scales are positions in the GeometrySegment list. """
 

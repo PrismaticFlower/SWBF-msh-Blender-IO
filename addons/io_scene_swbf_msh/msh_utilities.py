@@ -2,6 +2,13 @@
 
 from mathutils import Vector
 
+
+def vec_to_str(vec):
+    return "({:.4},{:.4},{:.4})".format(vec.x,vec.y,vec.z)
+
+def quat_to_str(quat):
+    return "({:.4},{:.4},{:.4},{:.4})".format(quat.x, quat.y, quat.z, quat.w)
+
 def add_vec(l: Vector, r: Vector) -> Vector:
     return Vector(v0 + v1 for v0, v1 in zip(l, r))
 

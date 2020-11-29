@@ -19,7 +19,7 @@ def save_scene(output_file, scene: Scene, is_animated: bool):
             with msh2.create_child("SINF") as sinf:
                 _write_sinf(sinf, scene)
 
-            model_index: Dict[str, int] = {model.name:i for i, model in enumerate(scene.models)}
+            model_index: Dict[str, int] = {model.name:(i+1) for i, model in enumerate(scene.models)}
             material_index: Dict[str, int] = {}
 
             with msh2.create_child("MATL") as matl:
@@ -27,7 +27,7 @@ def save_scene(output_file, scene: Scene, is_animated: bool):
 
             for index, model in enumerate(scene.models):
 
-                print(model.name)
+                #print("Name: {:.10}, Pos: {:15}, Rot: {:15}, Parent: {}".format(model.name, vec_to_str(model.transform.translation), quat_to_str(model.transform.rotation), model.parent))
 
                 with msh2.create_child("MODL") as modl:
                     _write_modl(modl, model, index, material_index, model_index)
@@ -48,16 +48,9 @@ def save_scene(output_file, scene: Scene, is_animated: bool):
 
 def _write_sinf(sinf: Writer, scene: Scene):
     with sinf.create_child("NAME") as name:
-        name.write_string("spa1_prop_impdoor_rig")
+        name.write_string(scene.name)
 
     with sinf.create_child("FRAM") as fram:
-        min_index = 0
-        max_index = 1
-
-        if scene.anims and len(scene.anims) > 0:
-            min_index = min([anim.start_index for anim in scene.anims])
-            max_index = min([anim.end_index for anim in scene.anims])
-
         fram.write_i32(0, 1)
         fram.write_f32(29.97)
 
@@ -126,7 +119,7 @@ def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str
         mtyp.write_u32(model.model_type.value)
 
     with modl.create_child("MNDX") as mndx:
-        mndx.write_u32(index)
+        mndx.write_u32(index + 1)
 
     with modl.create_child("NAME") as name:
         name.write_string(model.name)
@@ -135,13 +128,9 @@ def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str
         with modl.create_child("PRNT") as prnt:
             prnt.write_string(model.parent)
 
-    if model.model_type != ModelType.NULL and model.model_type != ModelType.BONE:
-        if model.hidden or "Dummy" in model.name or "hp_" in model.name:
-            with modl.create_child("FLGS") as flgs:
-                flgs.write_u32(1)
-            for seg in model.geometry:
-                seg.texcoords = None  
-
+    if model.hidden:
+        with modl.create_child("FLGS") as flgs:
+            flgs.write_u32(1)
 
     with modl.create_child("TRAN") as tran:
         _write_tran(tran, model.transform)
