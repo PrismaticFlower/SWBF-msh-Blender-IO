@@ -12,6 +12,8 @@ from .crc import *
 
 envls = []
 
+model_counter = 0
+
 def read_scene(input_file) -> Scene:
 
     scene = Scene()
@@ -71,6 +73,11 @@ def read_scene(input_file) -> Scene:
             else:
                 with hedr.read_child() as null:
                     pass
+
+    for envl in envls:
+        #print("Envelope: ")
+        for index in envl:
+            pass#print("\t" + scene.models[index].name)
                     
     return scene
 
@@ -149,7 +156,10 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
 
         elif "MNDX" in next_header:
             with modl.read_child() as mndx:
-                pass
+                index = mndx.read_u32()
+                global model_counter
+                print("Encountered model {} with index {}".format(model_counter, index))
+                model_counter += 1
 
         elif "NAME" in next_header:
             with modl.read_child() as name:
@@ -169,7 +179,10 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
 
         elif "GEOM" in next_header:
             model.geometry = []
+            envelope = []
+
             with modl.read_child() as geom:
+
                 while geom.could_have_child():
                     next_header_geom = geom.peak_next_header()
 
@@ -179,14 +192,22 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
 
                     elif "ENVL" in next_header_geom:
                         with geom.read_child() as envl:
-                            global envls
                             num_indicies = envl.read_u32()
-                            print("reading ENVL with " + str(num_indicies) + " indicies")
-                            envls += [envl.read_u32() for _ in range(num_indicies)]
+                            envelope += [envl.read_u32() - 1 for _ in range(num_indicies)]
                     
                     else:
                         with geom.read_child() as null:
                             pass
+            if envelope:
+                global envls
+                envls.append(envelope)
+
+            for seg in model.geometry:
+                if seg.weights:
+                    for weight_set in seg.weights:
+                        for i in range(len(weight_set)):
+                            weight = weight_set[i]
+                            weight_set[i] = (envelope[weight[0]], weight[1])
 
         elif "SWCI" in next_header:
             prim = CollisionPrimitive()
@@ -282,24 +303,30 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                 segm.skip_bytes(-2)
 
         elif "WGHT" in next_header:
+            print("===================================")
             with segm.read_child() as wght:
-                pass
-                '''
+                
                 geometry_seg.weights = []
 
                 num_weights = wght.read_u32()
 
                 for _ in range(num_weights):
                     weight_set = []
+                    print_str = ""
                     for _ in range(4):
                         index = wght.read_u32()
                         value = wght.read_f32()
 
+                        print_str += "({}, {}) ".format(index,value)
+
                         if value > 0.000001:
                             weight_set.append((index,value))
 
+                    #print(print_str)
+
                     geometry_seg.weights.append(weight_set)
-                '''
+            print("===================================")
+
         else:
             with segm.read_child() as unknown:
                 pass

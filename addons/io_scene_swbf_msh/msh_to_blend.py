@@ -41,13 +41,14 @@ def refined_skeleton_to_armature(refined_skeleton : List[Model], model_map):
 
         bone_children = [b for b in get_model_children(bone, refined_skeleton)]
         
-        if len(bone_children) > 0:
+        if bone_children:
             edit_bone.tail = Vector((0.0,0.0,0.0))
             for bone_child in bone_children:
                 edit_bone.tail += model_map[bone_child.name].matrix_world.translation
             edit_bone.tail = edit_bone.tail / len(bone_children)
         else:
             edit_bone.tail = model_map[bone.name].matrix_world @ Vector((-0.2,0.0,0.0))
+
 
 
     bpy.ops.object.mode_set(mode='OBJECT')
@@ -121,12 +122,6 @@ def extract_models(scene: Scene, materials_map):
     for model in sort_by_parent(scene.models):
         new_obj = None
 
-        if "bone_l_toe" in model.name:
-            loc = get_model_world_matrix(model, scene.models).translation
-            print("World bone_l_toe: " + str(loc))
-
-
-
         if model.name.startswith("p_") or "collision" in model.name or model.name.startswith("c_") or model.name.startswith("sv_"):
             continue
 
@@ -141,12 +136,17 @@ def extract_models(scene: Scene, materials_map):
 
             full_texcoords = []
 
+            weights_offsets = {}
+
             for i,seg in enumerate(model.geometry):
 
                 if i == 0:
                     mat_name = seg.material_name
 
                 verts += [tuple(convert_vector_space(v)) for v in seg.positions]
+
+                if seg.weights:
+                    weights_offsets[offset] = seg.weights
 
                 if seg.texcoords is not None:
                     full_texcoords += seg.texcoords
@@ -162,7 +162,7 @@ def extract_models(scene: Scene, materials_map):
             new_mesh.validate()
 
             
-            if len(full_texcoords) > 0:
+            if full_texcoords:
 
                 edit_mesh = bmesh.new()
                 edit_mesh.from_mesh(new_mesh)
@@ -180,9 +180,20 @@ def extract_models(scene: Scene, materials_map):
                 edit_mesh.to_mesh(new_mesh)
                 edit_mesh.free() 
             
-            
-                  
             new_obj = bpy.data.objects.new(new_mesh.name, new_mesh)
+
+
+            for offset in weights_offsets:
+                vertex_groups_indicies = {}
+                for i, weight_set in enumerate(weights_offsets[offset]):
+                    for weight in weight_set:
+                        index = weight[0]
+
+                        if index not in vertex_groups_indicies:
+                            model_name = scene.models[index].name
+                            vertex_groups_indicies[index] = new_obj.vertex_groups.new(name=model_name)
+
+                        vertex_groups_indicies[index].add([offset + i], weight[1], 'ADD')
 
             '''
             Assign Materials - will do per segment later...
@@ -249,6 +260,12 @@ def extract_scene(filepath: str, scene: Scene):
     folder = os.path.join(os.path.dirname(filepath),"")
 
     matmap = extract_materials(folder,scene)
+
+    if scene.skeleton:
+        #print("Skeleton models: ")
+        for model in scene.models:
+            if crc(model.name) in scene.skeleton:
+                pass#print("\tName: " + model.name + " Parent: " + model.parent)
 
     model_map = extract_models(scene, matmap)
 
