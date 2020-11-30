@@ -1,6 +1,7 @@
 """ Misc utilities. """
 
 from mathutils import Vector
+from typing import List
 
 
 def vec_to_str(vec):
@@ -36,3 +37,14 @@ def pack_color(color) -> int:
     packed |= (int(color[3] * 255.0 + 0.5) << 24)
 
     return packed
+
+def unpack_color(color: int) -> List[float]:
+
+    mask = int(0x000000ff)
+
+    r = (color & (mask << 16)) / 255.0
+    g = (color & (mask << 8)) / 255.0
+    b = (color & mask) / 255.0
+    a = (color & (mask << 24)) / 255.0
+
+    return [r,g,b,a]

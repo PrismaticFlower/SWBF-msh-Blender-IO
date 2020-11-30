@@ -4,7 +4,7 @@
 import bpy
 import math
 from enum import Enum
-from typing import List, Set, Dict, Tuple, Set
+from typing import List, Set, Dict, Tuple
 from itertools import zip_longest
 from .msh_model import *
 from .msh_model_utilities import *
@@ -80,6 +80,7 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
 
             mesh = obj.to_mesh()
             model.geometry = create_mesh_geometry(mesh, obj.vertex_groups)
+
             obj.to_mesh_clear()
 
             _, _, world_scale = obj.matrix_world.decompose()
@@ -103,7 +104,6 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
 
         models_list.append(model)
 
-
     return models_list
 
 
@@ -118,7 +118,6 @@ def create_parents_set() -> Set[str]:
             parents.add(obj.parent.name)
 
     return parents
-
 
 def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[GeometrySegment]:
     """ Creates a list of GeometrySegment objects from a Blender mesh.
@@ -217,7 +216,6 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[Geomet
             segment.weights.append([VertexWeight(v.weight, v.group) for v in groups])
 
         return new_index
-
 
     for tri in mesh.loop_triangles:
         polygons[tri.material_index].add(tri.polygon_index)

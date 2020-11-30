@@ -2,7 +2,7 @@
     saved to a .msh file. """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple
+from typing import List, Tuple
 from enum import Enum
 from mathutils import Vector, Quaternion
 
@@ -12,12 +12,13 @@ class ModelType(Enum):
     CLOTH = 2
     BONE = 3
     STATIC = 4
+    SHADOWVOLUME = 6
 
 class CollisionPrimitiveShape(Enum):
     SPHERE = 0
-    # ELLIPSOID = 1
+    ELLIPSOID = 1
     CYLINDER = 2
-    # MESH = 3
+    MESH = 3
     BOX = 4
 
 @dataclass
@@ -51,6 +52,8 @@ class GeometrySegment:
     triangles: List[List[int]] = field(default_factory=list)
     triangle_strips: List[List[int]] = None
 
+    weights: List[List[Tuple[int, float]]] = None
+
 @dataclass
 class CollisionPrimitive:
     """ Class representing a 'SWCI' section in a .msh file. """
@@ -75,6 +78,7 @@ class Model:
 
     geometry: List[GeometrySegment] = None
     collisionprimitive: CollisionPrimitive = None
+
 
 @dataclass
 class Animation:

@@ -53,12 +53,15 @@ if "bpy" in locals():
 # End of stuff taken from glTF
 
 import bpy
-from bpy_extras.io_utils import ExportHelper
+from bpy_extras.io_utils import ExportHelper, ImportHelper
 from bpy.props import BoolProperty, EnumProperty
 from bpy.types import Operator
 from .msh_scene import create_scene
 from .msh_scene_save import save_scene
+from .msh_scene_read import read_scene
 from .msh_material_properties import *
+from .msh_to_blend import *
+
 
 class ExportMSH(Operator, ExportHelper):
     """ Export the current scene as a SWBF .msh file. """
@@ -126,16 +129,47 @@ class ExportMSH(Operator, ExportHelper):
 
         return {'FINISHED'}
 
+
 # Only needed if you want to add into a dynamic menu
 def menu_func_export(self, context):
     self.layout.operator(ExportMSH.bl_idname, text="SWBF msh (.msh)")
+
+
+
+
+
+class ImportMSH(Operator, ImportHelper):
+    """ Import an SWBF .msh file. """
+
+    bl_idname = "swbf_msh.import"
+    bl_label = "Import SWBF .msh File"
+    filename_ext = ".msh"
+
+    filter_glob: StringProperty(
+        default="*.msh",
+        options={'HIDDEN'},
+        maxlen=255,  # Max internal buffer length, longer would be clamped.
+    )
+
+    def execute(self, context):
+        with open(self.filepath, 'rb') as input_file:
+            extract_scene(self.filepath, read_scene(input_file))
+        return {'FINISHED'}
+
+def menu_func_import(self, context):
+    self.layout.operator(ImportMSH.bl_idname, text="SWBF msh (.msh)")
+
+
+
 
 def register():
     bpy.utils.register_class(MaterialProperties)
     bpy.utils.register_class(MaterialPropertiesPanel)
     bpy.utils.register_class(ExportMSH)
+    bpy.utils.register_class(ImportMSH)
 
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
     bpy.types.Material.swbf_msh = bpy.props.PointerProperty(type=MaterialProperties)
 
 
@@ -143,7 +177,10 @@ def unregister():
     bpy.utils.unregister_class(MaterialProperties)
     bpy.utils.unregister_class(MaterialPropertiesPanel)
     bpy.utils.unregister_class(ExportMSH)
+    bpy.utils.unregister_class(ImportMSH)
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+
 
 if __name__ == "__main__":
     register()

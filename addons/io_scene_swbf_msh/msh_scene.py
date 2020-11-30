@@ -6,7 +6,7 @@ from typing import List, Dict
 from copy import copy
 import bpy
 from mathutils import Vector
-from .msh_model import Model, Animation
+from .msh_model import Model
 from .msh_model_gather import gather_models
 from .msh_model_utilities import sort_by_parent, has_multiple_root_models, reparent_model_roots, get_model_world_matrix
 from .msh_model_triangle_strips import create_models_triangle_strips
@@ -14,7 +14,6 @@ from .msh_material import *
 from .msh_material_gather import gather_materials
 from .msh_material_utilities import remove_unused_materials
 from .msh_utilities import *
-from .msh_anim_gather import * 
 
 @dataclass
 class SceneAABB:
@@ -44,8 +43,8 @@ class Scene:
     name: str = "Scene"
     materials: Dict[str, Material] = field(default_factory=dict)
     models: List[Model] = field(default_factory=list)
-    anims:  List[Animation] = field(default_factory=list)
 
+    skeleton: List[int] = field(default_factory=list)
 
 def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_target: str, skel_only: bool) -> Scene:
     """ Create a msh Scene from the active Blender scene. """

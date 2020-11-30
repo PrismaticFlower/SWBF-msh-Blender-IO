@@ -8,9 +8,13 @@ from .msh_material import *
 from .msh_writer import Writer
 from .msh_utilities import *
 
+<<<<<<< HEAD
 from .crc import *
 
 def save_scene(output_file, scene: Scene, is_animated: bool):
+=======
+def save_scene(output_file, scene: Scene):
+>>>>>>> mshread
     """ Saves scene to the supplied file. """
 
     with Writer(file=output_file, chunk_id="HEDR") as hedr:
@@ -52,7 +56,7 @@ def _write_sinf(sinf: Writer, scene: Scene):
 
     with sinf.create_child("FRAM") as fram:
         fram.write_i32(0, 1)
-        fram.write_f32(29.97)
+        fram.write_f32(29.97003)
 
     with sinf.create_child("BBOX") as bbox:
         aabb = create_scene_aabb(scene)
@@ -298,6 +302,3 @@ def _write_anm2(anm2: Writer, anim: Animation):
             for i, xform in enumerate(anim.bone_transforms[boneName]):
                 kfr3.write_u32(i)
                 kfr3.write_f32(xform.rotation.x, xform.rotation.y, xform.rotation.z, xform.rotation.w)
-
-
-
