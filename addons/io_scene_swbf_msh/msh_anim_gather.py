@@ -12,7 +12,7 @@ from .msh_utilities import *
 from .msh_model_gather import *
 
 
-def extract_anim(armature: bpy.types.Armature) -> Animation:
+def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
 
     action = armature.animation_data.action
     anim = Animation();
@@ -27,7 +27,7 @@ def extract_anim(armature: bpy.types.Armature) -> Animation:
 
     anim.end_index = num_frames - 1
     
-    anim.bone_frames["DummyRoot"] = ([], [])
+    anim.bone_frames[root_name] = ([], [])
     for bone in armature.data.bones:
         anim.bone_frames[bone.name] = ([], [])
 
@@ -40,8 +40,8 @@ def extract_anim(armature: bpy.types.Armature) -> Animation:
         rframe_dummy = RotationFrame(frame, convert_rotation_space(Quaternion()))
         tframe_dummy = TranslationFrame(frame, Vector((0.0,0.0,0.0)))
 
-        anim.bone_frames["DummyRoot"][0].append(tframe_dummy)
-        anim.bone_frames["DummyRoot"][1].append(rframe_dummy)
+        anim.bone_frames[root_name][0].append(tframe_dummy)
+        anim.bone_frames[root_name][1].append(rframe_dummy)
 
 
         for bone in armature.pose.bones:

@@ -10,7 +10,7 @@ from .msh_utilities import *
 
 from .crc import *
 
-def save_scene(output_file, scene: Scene, is_animated: bool):
+def save_scene(output_file, scene: Scene):
     """ Saves scene to the supplied file. """
 
     with Writer(file=output_file, chunk_id="HEDR") as hedr:
@@ -32,16 +32,15 @@ def save_scene(output_file, scene: Scene, is_animated: bool):
                 with msh2.create_child("MODL") as modl:
                     _write_modl(modl, model, index, material_index, model_index)
 
-        if is_animated:
+        if scene.animation is not None:
             with hedr.create_child("SKL2") as skl2:
-                _write_skl2(skl2, scene)
+                _write_skl2(skl2, scene.animation)
 
             with hedr.create_child("BLN2") as bln2:
-                _write_bln2(bln2, scene)
+                _write_bln2(bln2, scene.animation)
 
-            with hedr.create_child("ANM2") as anm2: #simple for now
-                for anim in scene.anims:
-                    _write_anm2(anm2, anim)
+            with hedr.create_child("ANM2") as anm2: #simple for now              
+                _write_anm2(anm2, scene.animation)
 
         with hedr.create_child("CL1L"):
             pass
@@ -247,23 +246,23 @@ def _write_envl(envl: Writer, model: Model, model_index: Dict[str, int]):
 '''
 SKELETON CHUNKS
 '''
-def _write_bln2(bln2: Writer, scene: Scene):
-    bones = scene.anims[0].bone_frames.keys()
+def _write_bln2(bln2: Writer, anim: Animation):
+    bones = anim.bone_frames.keys()
     bln2.write_u32(len(bones))
 
     for boneName in bones:
         bln2.write_u32(crc(boneName), 0) 
 
-def _write_skl2(skl2: Writer, scene: Scene):
-    bones = scene.anims[0].bone_frames.keys()
-    skl2.write_u32(len(bones))
+def _write_skl2(skl2: Writer, anim: Animation):
+    bones = anim.bone_frames.keys()
+    skl2.write_u32(len(bones)) 
 
     for boneName in bones:
-        skl2.write_u32(crc(boneName), 0) #default values 
-        skl2.write_f32(1.0, 0.0, 0.0)   #from docs
+        skl2.write_u32(crc(boneName), 0) #default values from docs
+        skl2.write_f32(1.0, 0.0, 0.0)
 
 '''
-ANIMATION CHUNK
+ANIMATION CHUNKS
 '''
 def _write_anm2(anm2: Writer, anim: Animation):
 

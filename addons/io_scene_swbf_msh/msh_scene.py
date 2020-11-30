@@ -44,10 +44,10 @@ class Scene:
     name: str = "Scene"
     materials: Dict[str, Material] = field(default_factory=dict)
     models: List[Model] = field(default_factory=list)
-    anims:  List[Animation] = field(default_factory=list)
+    animation: Animation = None
 
 
-def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_target: str, skel_only: bool) -> Scene:
+def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_target: str, skel_only: bool, export_anim: bool) -> Scene:
     """ Create a msh Scene from the active Blender scene. """
 
     scene = Scene()
@@ -56,7 +56,7 @@ def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_t
 
     scene.materials = gather_materials()
 
-    scene.models = gather_models(apply_modifiers=apply_modifiers, export_target=export_target, skeleton_only=skel_only)
+    scene.models, armature_obj = gather_models(apply_modifiers=apply_modifiers, export_target=export_target, skeleton_only=skel_only)
     scene.models = sort_by_parent(scene.models)
 
     if generate_triangle_strips:
@@ -72,12 +72,17 @@ def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_t
 
     scene.materials = remove_unused_materials(scene.materials, scene.models)
  
-    #creates a dummy basepose if no Action is selected
-    if "Armature" in bpy.context.scene.objects.keys():
-        scene.anims = [extract_anim(bpy.context.scene.objects["Armature"])]
 
     root = scene.models[0]
+
+    if export_anim:
+        if armature_obj is not None:
+            scene.animation = extract_anim(armature_obj, root.name)
+        else:
+            raise Exception("Export Error: Could not find an armature object from which to export an animation!")
+
     if skel_only and root.model_type == ModelType.NULL:
+        # For ZenAsset
     	inject_dummy_data(root)
 
     return scene

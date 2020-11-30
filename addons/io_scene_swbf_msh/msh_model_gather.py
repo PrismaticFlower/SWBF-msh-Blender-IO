@@ -14,7 +14,7 @@ SKIPPED_OBJECT_TYPES = {"LATTICE", "CAMERA", "LIGHT", "SPEAKER", "LIGHT_PROBE"}
 MESH_OBJECT_TYPES = {"MESH", "CURVE", "SURFACE", "META", "FONT", "GPENCIL"}
 MAX_MSH_VERTEX_COUNT = 32767
 
-def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool) -> List[Model]:
+def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool) -> Tuple[List[Model], bpy.types.Object]:
     """ Gathers the Blender objects from the current scene and returns them as a list of
         Model objects. """
 
@@ -22,6 +22,8 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
     parents = create_parents_set()
 
     models_list: List[Model] = []
+
+    armature_found = None
 
     for uneval_obj in select_objects(export_target):
         if uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents:
@@ -36,6 +38,7 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
 
         if obj.type == "ARMATURE":
             models_list += expand_armature(obj)
+            armature_found = obj
             continue
 
         model = Model()
@@ -44,7 +47,6 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
         model.hidden = get_is_model_hidden(obj)
 
         transform = obj.matrix_local
-        transform_reset = Matrix.Identity(4)
 
         if obj.parent_bone:
             model.parent = obj.parent_bone
@@ -52,18 +54,8 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
             # matrix_local, when called on an armature child also parented to a bone, appears to be broken.
             # At the very least, the results contradict the docs...  
             armature_relative_transform = obj.parent.matrix_world.inverted() @ obj.matrix_world
-            bone_relative_transform = obj.parent.data.bones[obj.parent_bone].matrix_local.inverted() @ armature_relative_transform 
+            transform = obj.parent.data.bones[obj.parent_bone].matrix_local.inverted() @ armature_relative_transform 
 
-            transform = bone_relative_transform   
-
-            '''
-            # Since the transforms of direct bone children are discarded by ZEngine (but not ZEditor), we apply the transform
-            # before geometry extraction, then apply the inversion after. 
-            if obj.type in MESH_OBJECT_TYPES:
-                obj.data.transform(bone_relative_transform)
-                transform_reset = bone_relative_transform.inverted()
-                transform = Matrix.Identity(4)
-            '''
         else:
             if obj.parent is not None:
                 if obj.parent.type == "ARMATURE":
@@ -94,8 +86,6 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
             if obj.vertex_groups:
                 model.bone_map = [group.name for group in obj.vertex_groups]
 
-            obj.data.transform(transform_reset)
-
 
         if get_is_collision_primitive(obj):
             model.collisionprimitive = get_collision_primitive(obj)
@@ -104,7 +94,7 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
         models_list.append(model)
 
 
-    return models_list
+    return (models_list, armature_found)
 
 
 def create_parents_set() -> Set[str]:

@@ -97,15 +97,15 @@ class ExportMSH(Operator, ExportHelper):
         default=True
     )
 
-    export_animated: BoolProperty(
-        name="Export Animated Object",
-        description="Always check if the object will be animated.",
+    export_with_animation: BoolProperty(
+        name="Export With Animation",
+        description="Includes animation data extracted from the action currently set on armature.",
         default=False
     )
 
-    export_skeleton_only: BoolProperty(
-        name="Export Skeleton",
-        description="Check if you intend to export skeleton data only.",
+    export_as_skeleton: BoolProperty(
+        name="Export Objects As Skeleton",
+        description="Check if you intend to export skeleton data for consumption by ZenAsset.",
         default=False
     )
 
@@ -119,9 +119,9 @@ class ExportMSH(Operator, ExportHelper):
                     generate_triangle_strips=self.generate_triangle_strips, 
                     apply_modifiers=self.apply_modifiers,
                     export_target=self.export_target,
-                    skel_only=self.export_skeleton_only
+                    skel_only=self.export_as_skeleton,
+                    export_anim=self.export_with_animation
                 ),
-                is_animated=self.export_animated
             )
 
         return {'FINISHED'}
