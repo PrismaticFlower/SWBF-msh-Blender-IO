@@ -10,15 +10,17 @@ from .msh_utilities import *
 
 from .crc import *
 
-envls = []
-
 model_counter = 0
+
 
 def read_scene(input_file) -> Scene:
 
     scene = Scene()
     scene.models = []
     scene.materials = {}
+
+    global model_counter
+    model_counter = 0
 
     with Reader(file=input_file) as hedr:
 
@@ -59,13 +61,7 @@ def read_scene(input_file) -> Scene:
                 with hedr.read_child() as skl2:
                     num_bones = skl2.read_u32()
                     scene.skeleton = [skl2.read_u32(5)[0] for i in range(num_bones)]
-                #print("Skeleton models: ")
-                for crc_hash in scene.skeleton:
-                    for model in scene.models:
-                        if crc_hash == crc(model.name):
-                            pass
-                            #print("\t" + model.name + " with type: " + str(model.model_type))
-
+                
             elif "ANM2" in next_header:
                 with hedr.read_child() as anm2:
                     _read_anm2(anm2, scene.models)
@@ -74,10 +70,12 @@ def read_scene(input_file) -> Scene:
                 with hedr.read_child() as null:
                     pass
 
-    for envl in envls:
-        #print("Envelope: ")
-        for index in envl:
-            pass#print("\t" + scene.models[index].name)
+    if scene.skeleton:
+        print("Skeleton models: ")
+        for model in scene.models:
+            if crc(model.name) in scene.skeleton:
+                print("\t" + model.name)
+
                     
     return scene
 
@@ -156,9 +154,9 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
 
         elif "MNDX" in next_header:
             with modl.read_child() as mndx:
-                index = mndx.read_u32()
                 global model_counter
-                print("Encountered model {} with index {}".format(model_counter, index))
+                if mndx.read_u32() - 1 != model_counter:
+                    print("MODEL INDEX DIDNT MATCH COUNTER!")
                 model_counter += 1
 
         elif "NAME" in next_header:
@@ -198,9 +196,6 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
                     else:
                         with geom.read_child() as null:
                             pass
-            if envelope:
-                global envls
-                envls.append(envelope)
 
             for seg in model.geometry:
                 if seg.weights:
@@ -219,8 +214,10 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
             model.collisionprimitive = prim
 
         else:
-            with modl.read_child() as unknown:
+            with modl.read_child() as null:
                 pass
+
+    print("Reading model " + model.name + " of type: " + str(model.model_type)[10:])
 
     return model
 
@@ -303,32 +300,24 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                 segm.skip_bytes(-2)
 
         elif "WGHT" in next_header:
-            print("===================================")
             with segm.read_child() as wght:
                 
                 geometry_seg.weights = []
-
                 num_weights = wght.read_u32()
 
                 for _ in range(num_weights):
                     weight_set = []
-                    print_str = ""
                     for _ in range(4):
                         index = wght.read_u32()
                         value = wght.read_f32()
 
-                        print_str += "({}, {}) ".format(index,value)
-
                         if value > 0.000001:
                             weight_set.append((index,value))
 
-                    #print(print_str)
-
                     geometry_seg.weights.append(weight_set)
-            print("===================================")
 
         else:
-            with segm.read_child() as unknown:
+            with segm.read_child() as null:
                 pass
 
     return geometry_seg
