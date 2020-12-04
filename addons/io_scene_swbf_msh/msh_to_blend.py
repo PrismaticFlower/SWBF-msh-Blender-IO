@@ -20,6 +20,47 @@ import os
 
 #def import_anim(scene : Scene):
 
+def parent_object_to_bone(obj, armature, bone_name):
+
+    bpy.ops.object.select_all(action='DESELECT')
+    armature.select_set(True)
+    bpy.context.view_layer.objects.active = armature
+    bpy.ops.object.mode_set(mode='EDIT')
+    armature.data.edit_bones.active = armature.data.edit_bones[bone_name]
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.context.view_layer.objects.active = None
+
+
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+
+    bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
+    bpy.context.view_layer.objects.active = None
+
+
+    obj.select_set(True)
+    armature.select_set(True)
+    bpy.context.view_layer.objects.active = armature
+
+    bpy.ops.object.mode_set(mode='POSE')
+
+    armature.pose.bones[bone_name].bone.select = True
+
+    bpy.ops.object.parent_set(type="BONE")
+    armature.pose.bones[bone_name].bone.select = False
+
+
+
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='DESELECT')
+
+
+
+
+
 
 
 
@@ -301,7 +342,18 @@ def extract_scene(filepath: str, scene: Scene):
             armature.select_set(False)
             bpy.context.view_layer.objects.active = None
 
-    if reparent_obj is not None:
+    print("About to parent to bones....")
+
+    if armature is not None:
+        for bone in armature.data.bones:
+            for model in scene.models:
+                if model.parent in armature.data.bones and model.name not in armature.data.bones:
+                    parent_object_to_bone(model_map[model.name], armature, model.parent)
+
+    print("Done parenting to bones")
+    '''
+    if reparent_obj is not None and armature.name != reparent_obj.name:
+
         armature.select_set(True)
         reparent_obj.select_set(True)
         bpy.context.view_layer.objects.active = reparent_obj
@@ -312,17 +364,12 @@ def extract_scene(filepath: str, scene: Scene):
         bpy.context.view_layer.objects.active = None
 
 
-    if armature is not None:
-        for bone in armature.data.bones:
-            model_map[bone.name].select_set(True)
-        bpy.ops.object.delete()
-
     for model in scene.models:
         if model.name in bpy.data.objects:
             obj = bpy.data.objects[model.name]
             if get_is_model_hidden(obj) and len(obj.children) == 0:
                 obj.hide_set(True)
-
+    '''
 
 
 

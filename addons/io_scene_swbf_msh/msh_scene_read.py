@@ -254,6 +254,8 @@ def _read_tran(tran: Reader) -> ModelTransform:
     xform.rotation = Quaternion((rot[3], rot[0], rot[1], rot[2]))
     xform.translation = Vector(tran.read_f32(3))
 
+    print(tran.indent + "Rot: {} Loc: {}".format(str(xform.rotation), str(xform.translation)))
+
     return xform
 
 
