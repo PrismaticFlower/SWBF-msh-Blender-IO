@@ -83,7 +83,6 @@ def extract_refined_skeleton(scene: Scene):
 
                             if crc(model_weighted_to.name) not in scene.skeleton:
                                 scene.skeleton.append(crc(model_weighted_to.name))
-                                print("Found additional bone: " + model_weighted_to.name)
                     
     for model in scene.models:
         if crc(model.name) in scene.skeleton:
@@ -170,7 +169,6 @@ def extract_models(scene: Scene, materials_map):
                     for strip in seg.triangle_strips:
                         for i in range(len(strip) - 2):
                             face = tuple([offset + strip[j] for j in range(i,i+3)])
-                            print("strip face: " + str(face))
                             faces.append(face)
 
                 offset += len(seg.positions)

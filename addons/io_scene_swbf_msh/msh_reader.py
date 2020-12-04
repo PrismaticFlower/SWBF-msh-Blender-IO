@@ -16,9 +16,7 @@ class Reader:
         self.size_pos = self.file.tell()
         self.header = self.read_bytes(4).decode("utf-8")
         self.size = self.read_u32()
-
-        padding_length = 4 - (self.size % 4) if self.size % 4 > 0 else 0
-        self.end_pos = self.size_pos + padding_length + self.size + 8
+        self.end_pos = self.size_pos + self.size + 8
 
         if self.debug:
             print(self.indent + "Begin " + self.header + ", Size: " + str(self.size) + ", Pos: " + str(self.size_pos))
