@@ -3,12 +3,13 @@ import io
 import struct
 
 class Reader:
-    def __init__(self, file, parent=None, indent=0):
+    def __init__(self, file, parent=None, indent=0, debug=False):
         self.file = file
         self.size: int = 0
         self.size_pos = None
         self.parent = parent
         self.indent = "  " * indent #for print debugging
+        self.debug = debug
 
 
     def __enter__(self):
@@ -19,7 +20,8 @@ class Reader:
         padding_length = 4 - (self.size % 4) if self.size % 4 > 0 else 0
         self.end_pos = self.size_pos + padding_length + self.size + 8
 
-        #print(self.indent + "Begin " + self.header + ", Size: " + str(self.size) + ", Pos: " + str(self.size_pos))
+        if self.debug:
+            print(self.indent + "Begin " + self.header + ", Size: " + str(self.size) + ", Pos: " + str(self.size_pos))
 
         return self
 
@@ -28,7 +30,9 @@ class Reader:
         if self.size > self.MAX_SIZE:
             raise OverflowError(f".msh file overflowed max size. size = {self.size} MAX_SIZE = {self.MAX_SIZE}")
 
-        #print(self.indent + "End   " + self.header)
+        if self.debug:
+            print(self.indent + "End   " + self.header)
+
         self.file.seek(self.end_pos)
 
 
@@ -84,7 +88,7 @@ class Reader:
 
 
     def read_child(self):
-        child = Reader(self.file, parent=self, indent=int(len(self.indent) / 2) + 1)
+        child = Reader(self.file, parent=self, indent=int(len(self.indent) / 2) + 1, debug=self.debug)
         return child
 
 
@@ -95,7 +99,13 @@ class Reader:
     def peak_next_header(self):
         buf = self.read_bytes(4);
         self.file.seek(-4,1)
-        return buf.decode("utf-8")
+        try:
+            result = buf.decode("utf-8")
+        except:
+            result = ""
+
+        return result
+
 
 
     def could_have_child(self):

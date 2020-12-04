@@ -8,13 +8,10 @@ from .msh_material import *
 from .msh_writer import Writer
 from .msh_utilities import *
 
-<<<<<<< HEAD
 from .crc import *
 
-def save_scene(output_file, scene: Scene, is_animated: bool):
-=======
+
 def save_scene(output_file, scene: Scene):
->>>>>>> mshread
     """ Saves scene to the supplied file. """
 
     with Writer(file=output_file, chunk_id="HEDR") as hedr:
@@ -36,16 +33,15 @@ def save_scene(output_file, scene: Scene):
                 with msh2.create_child("MODL") as modl:
                     _write_modl(modl, model, index, material_index, model_index)
 
-        if is_animated:
+        if scene.animation is not None:
             with hedr.create_child("SKL2") as skl2:
-                _write_skl2(skl2, scene)
+                _write_skl2(skl2, scene.animation)
 
             with hedr.create_child("BLN2") as bln2:
-                _write_bln2(bln2, scene)
+                _write_bln2(bln2, scene.animation)
 
-            with hedr.create_child("ANM2") as anm2: #simple for now
-                for anim in scene.anims:
-                    _write_anm2(anm2, anim)
+            with hedr.create_child("ANM2") as anm2: #simple for now              
+                _write_anm2(anm2, scene.animation)
 
         with hedr.create_child("CL1L"):
             pass
@@ -251,23 +247,23 @@ def _write_envl(envl: Writer, model: Model, model_index: Dict[str, int]):
 '''
 SKELETON CHUNKS
 '''
-def _write_bln2(bln2: Writer, scene: Scene):
-    bones = scene.anims[0].bone_transforms.keys()
+def _write_bln2(bln2: Writer, anim: Animation):
+    bones = anim.bone_frames.keys()
     bln2.write_u32(len(bones))
 
     for boneName in bones:
         bln2.write_u32(crc(boneName), 0) 
 
-def _write_skl2(skl2: Writer, scene: Scene):
-    bones = scene.anims[0].bone_transforms.keys()
-    skl2.write_u32(len(bones))
+def _write_skl2(skl2: Writer, anim: Animation):
+    bones = anim.bone_frames.keys()
+    skl2.write_u32(len(bones)) 
 
     for boneName in bones:
-        skl2.write_u32(crc(boneName), 0) #default values 
-        skl2.write_f32(1.0, 0.0, 0.0)   #from docs
+        skl2.write_u32(crc(boneName), 0) #default values from docs
+        skl2.write_f32(1.0, 0.0, 0.0)
 
 '''
-ANIMATION CHUNK
+ANIMATION CHUNKS
 '''
 def _write_anm2(anm2: Writer, anim: Animation):
 
@@ -286,19 +282,21 @@ def _write_anm2(anm2: Writer, anim: Animation):
 
     with anm2.create_child("KFR3") as kfr3:
         
-        kfr3.write_u32(len(anim.bone_transforms.keys()))
+        kfr3.write_u32(len(anim.bone_frames))
 
-        for boneName in anim.bone_transforms.keys():
+        for boneName in anim.bone_frames:
             kfr3.write_u32(crc(boneName))
             kfr3.write_u32(0) #what is keyframe type?
 
-            num_frames = 1 + anim.end_index - anim.start_index  
-            kfr3.write_u32(num_frames, num_frames) #basic testing
+            translation_frames, rotation_frames = anim.bone_frames[boneName]
 
-            for i, xform in enumerate(anim.bone_transforms[boneName]):
-                kfr3.write_u32(i)
-                kfr3.write_f32(xform.translation.x, xform.translation.y, xform.translation.z)
+            kfr3.write_u32(len(translation_frames), len(rotation_frames))
 
-            for i, xform in enumerate(anim.bone_transforms[boneName]):
-                kfr3.write_u32(i)
-                kfr3.write_f32(xform.rotation.x, xform.rotation.y, xform.rotation.z, xform.rotation.w)
+            for frame in translation_frames:
+                kfr3.write_u32(frame.index)
+                kfr3.write_f32(frame.translation.x, frame.translation.y, frame.translation.z)
+
+            for frame in rotation_frames:
+                kfr3.write_u32(frame.index)
+                kfr3.write_f32(frame.rotation.x, frame.rotation.y, frame.rotation.z, frame.rotation.w)
+                

@@ -2,7 +2,7 @@
     saved to a .msh file. """
 
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from enum import Enum
 from mathutils import Vector, Quaternion
 
@@ -52,7 +52,6 @@ class GeometrySegment:
     triangles: List[List[int]] = field(default_factory=list)
     triangle_strips: List[List[int]] = None
 
-    weights: List[List[Tuple[int, float]]] = None
 
 @dataclass
 class CollisionPrimitive:
@@ -81,13 +80,26 @@ class Model:
 
 
 @dataclass
+class RotationFrame:
+
+    index : int = 0
+    rotation : Quaternion = field(default_factory=Quaternion)
+
+
+@dataclass
+class TranslationFrame:
+
+    index : int = 0
+    translation : Vector = field(default_factory=Vector)  
+
+
+@dataclass
 class Animation:
     """ Class representing 'CYCL' + 'KFR3' sections in a .msh file """
 
     name: str = "fullanimation"
-    bone_transforms: Dict[str, List[ModelTransform]] = field(default_factory=dict)
+    bone_frames: Dict[str, Tuple[List[TranslationFrame], List[RotationFrame]]] = field(default_factory=dict)
 
     framerate: float = 29.97
     start_index : int = 0
     end_index   : int = 0
-    

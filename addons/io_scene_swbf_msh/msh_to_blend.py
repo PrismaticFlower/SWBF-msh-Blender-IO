@@ -79,7 +79,7 @@ def extract_refined_skeleton(scene: Scene):
                 if seg.weights:
                     for weight_set in seg.weights:
                         for weight in weight_set:
-                            model_weighted_to = scene.models[weight[0]]
+                            model_weighted_to = scene.models[weight.bone]
 
                             if crc(model_weighted_to.name) not in scene.skeleton:
                                 scene.skeleton.append(crc(model_weighted_to.name))
@@ -164,7 +164,14 @@ def extract_models(scene: Scene, materials_map):
                 else:
                     full_texcoords += [(0.0,0.0) for _ in range(len(seg.positions))]
 
-                faces += [tuple([ind + offset for ind in tri]) for tri in seg.triangles]
+                if seg.triangles:
+                    faces += [tuple([ind + offset for ind in tri]) for tri in seg.triangles]
+                else:
+                    for strip in seg.triangle_strips:
+                        for i in range(len(strip) - 2):
+                            face = tuple([offset + strip[j] for j in range(i,i+3)])
+                            print("strip face: " + str(face))
+                            faces.append(face)
 
                 offset += len(seg.positions)
 
@@ -199,13 +206,13 @@ def extract_models(scene: Scene, materials_map):
             for offset in weights_offsets:
                 for i, weight_set in enumerate(weights_offsets[offset]):
                     for weight in weight_set:
-                        index = weight[0]
+                        index = weight.bone
 
                         if index not in vertex_groups_indicies:
                             model_name = scene.models[index].name
                             vertex_groups_indicies[index] = new_obj.vertex_groups.new(name=model_name)
 
-                        vertex_groups_indicies[index].add([offset + i], weight[1], 'ADD')
+                        vertex_groups_indicies[index].add([offset + i], weight.weight, 'ADD')
 
             '''
             Assign Materials - will do per segment later...
@@ -277,8 +284,8 @@ def extract_scene(filepath: str, scene: Scene):
     skel = extract_refined_skeleton(scene)
     armature = refined_skeleton_to_armature(skel, model_map)
 
+    reparent_obj = None
     for model in scene.models:
-        reparent_obj = None
         if model.model_type == ModelType.SKIN:
 
             if model.parent:
@@ -314,8 +321,9 @@ def extract_scene(filepath: str, scene: Scene):
 
     for model in scene.models:
         if model.name in bpy.data.objects:
-            if model.hidden and len(bpy.data.objects[model.name].children) == 0:
-                bpy.data.objects[model.name].hide_set(True)
+            obj = bpy.data.objects[model.name]
+            if get_is_model_hidden(obj) and len(obj.children) == 0:
+                obj.hide_set(True)
 
 
 

@@ -12,6 +12,8 @@ from .crc import *
 
 model_counter = 0
 
+mndx_remap = {}
+
 
 def read_scene(input_file) -> Scene:
 
@@ -19,10 +21,13 @@ def read_scene(input_file) -> Scene:
     scene.models = []
     scene.materials = {}
 
+    global mndx_remap
+    mndx_remap = {}
+
     global model_counter
     model_counter = 0
 
-    with Reader(file=input_file) as hedr:
+    with Reader(file=input_file, debug=True) as hedr:
 
         while hedr.could_have_child():
 
@@ -54,8 +59,7 @@ def read_scene(input_file) -> Scene:
                                     scene.models.append(_read_modl(modl, materials_list))
 
                         else:
-                            with hedr.read_child() as unknown:
-                                pass
+                            msh2.skip_bytes(1)
 
             elif "SKL2" in next_header:
                 with hedr.read_child() as skl2:
@@ -67,15 +71,27 @@ def read_scene(input_file) -> Scene:
                     _read_anm2(anm2, scene.models)
 
             else:
-                with hedr.read_child() as null:
-                    pass
+                hedr.skip_bytes(1)
+
 
     if scene.skeleton:
         print("Skeleton models: ")
         for model in scene.models:
-            if crc(model.name) in scene.skeleton:
-                print("\t" + model.name)
+            for i in range(len(scene.skeleton)):                
+                if crc(model.name) == scene.skeleton[i]:
+                    print("\t" + model.name)
+                    if model.model_type == ModelType.SKIN:
+                        scene.skeleton.pop(i)
+                    break
 
+
+    for model in scene.models:
+        if model.geometry:
+            for seg in model.geometry:
+                if seg.weights:
+                    for weight_set in seg.weights:
+                        for vweight in weight_set:
+                            vweight.bone = mndx_remap[vweight.bone]
                     
     return scene
 
@@ -135,7 +151,7 @@ def _read_matd(matd: Reader) -> Material:
                 mat.texture3 = tx3d.read_string()
 
         else:
-            matd.skip_bytes(4)
+            matd.skip_bytes(1)
 
     return mat
 
@@ -154,9 +170,14 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
 
         elif "MNDX" in next_header:
             with modl.read_child() as mndx:
+                index = mndx.read_u32()
+
                 global model_counter
-                if mndx.read_u32() - 1 != model_counter:
-                    print("MODEL INDEX DIDNT MATCH COUNTER!")
+                print(mndx.indent + "MNDX doesn't match counter, expected: {} found: {}".format(model_counter, index))
+
+                global mndx_remap
+                mndx_remap[index] = model_counter
+
                 model_counter += 1
 
         elif "NAME" in next_header:
@@ -191,18 +212,20 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
                     elif "ENVL" in next_header_geom:
                         with geom.read_child() as envl:
                             num_indicies = envl.read_u32()
-                            envelope += [envl.read_u32() - 1 for _ in range(num_indicies)]
+                            envelope += [envl.read_u32() for _ in range(num_indicies)]
                     
                     else:
-                        with geom.read_child() as null:
-                            pass
+                        geom.skip_bytes(1)
+                        #with geom.read_child() as null:
+                        #pass
 
             for seg in model.geometry:
-                if seg.weights:
+                if seg.weights and envelope:
                     for weight_set in seg.weights:
                         for i in range(len(weight_set)):
-                            weight = weight_set[i]
-                            weight_set[i] = (envelope[weight[0]], weight[1])
+                            vertex_weight = weight_set[i]
+                            index = vertex_weight.bone
+                            weight_set[i] = VertexWeight(vertex_weight.weight, envelope[vertex_weight.bone])
 
         elif "SWCI" in next_header:
             prim = CollisionPrimitive()
@@ -214,10 +237,9 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
             model.collisionprimitive = prim
 
         else:
-            with modl.read_child() as null:
-                pass
+            modl.skip_bytes(1)
 
-    print("Reading model " + model.name + " of type: " + str(model.model_type)[10:])
+    print(modl.indent + "Read model " + model.name + " of type: " + str(model.model_type)[10:])
 
     return model
 
@@ -293,11 +315,45 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                     geometry_seg.triangles.append(ndxt.read_u16(3))
 
         elif "STRP" in next_header:
-            with segm.read_child() as strp:
-                pass
+            strips : List[List[int]] = []
 
-            if segm.read_u16 != 0: #trailing 0 bug https://schlechtwetterfront.github.io/ze_filetypes/msh.html#STRP
-                segm.skip_bytes(-2)
+            with segm.read_child() as strp:
+                num_indicies = strp.read_u32()
+
+                num_indicies_read = 0
+
+                curr_strip = []
+                previous_flag = False
+
+                if num_indicies > 0:
+                    index, index1 = strp.read_u16(2)
+                    curr_strip = [index & 0x7fff, index1 & 0x7fff]
+                    num_indicies_read += 2
+
+                for i in range(num_indicies - 2):
+                    index = strp.read_u16(1)
+
+                    if index & 0x8000 > 0:
+                        index = index & 0x7fff
+
+                        if previous_flag:
+                            previous_flag = False
+                            curr_strip.append(index)
+                            strips.append(curr_strip[:-2])
+                            curr_strip = curr_strip[-2:]
+                            continue
+                        else:
+                            previous_flag = True
+
+                    else:
+                        previous_flag = False
+                     
+                    curr_strip.append(index)
+
+            geometry_seg.triangle_strips = strips
+
+            #if segm.read_u16 != 0: #trailing 0 bug https://schlechtwetterfront.github.io/ze_filetypes/msh.html#STRP
+            #    segm.skip_bytes(-2)
 
         elif "WGHT" in next_header:
             with segm.read_child() as wght:
@@ -312,13 +368,12 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                         value = wght.read_f32()
 
                         if value > 0.000001:
-                            weight_set.append((index,value))
+                            weight_set.append(VertexWeight(value,index))
 
                     geometry_seg.weights.append(weight_set)
 
         else:
-            with segm.read_child() as null:
-                pass
+            segm.skip_bytes(1)
 
     return geometry_seg
 
