@@ -84,6 +84,14 @@ class Reader:
         return result[0] if num == 1 else result
 
 
+    def read_quat(self):
+        rot = self.read_f32(4)
+        return Quaternion((rot[3], rot[0], rot[1], rot[2]))
+
+    def read_vec(self):
+        return Vector(self.read_f32(3))
+
+
 
     def read_child(self):
         child = Reader(self.file, parent=self, indent=int(len(self.indent) / 2) + 1, debug=self.debug)

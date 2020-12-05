@@ -17,6 +17,8 @@ def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
     action = armature.animation_data.action
     anim = Animation();
 
+    root_crc = crc(root_name)
+
     if not action:
         framerange = Vector((0.0,1.0))
     else:
@@ -27,9 +29,9 @@ def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
 
     anim.end_index = num_frames - 1
     
-    anim.bone_frames[root_name] = ([], [])
+    anim.bone_frames[root_crc] = ([], [])
     for bone in armature.data.bones:
-        anim.bone_frames[bone.name] = ([], [])
+        anim.bone_frames[crc(bone.name)] = ([], [])
 
     for frame in range(num_frames):
         
@@ -40,8 +42,8 @@ def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
         rframe_dummy = RotationFrame(frame, convert_rotation_space(Quaternion()))
         tframe_dummy = TranslationFrame(frame, Vector((0.0,0.0,0.0)))
 
-        anim.bone_frames[root_name][0].append(tframe_dummy)
-        anim.bone_frames[root_name][1].append(rframe_dummy)
+        anim.bone_frames[root_crc][0].append(tframe_dummy)
+        anim.bone_frames[root_crc][1].append(rframe_dummy)
 
 
         for bone in armature.pose.bones:
@@ -56,8 +58,8 @@ def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
             rframe = RotationFrame(frame, convert_rotation_space(rot))
             tframe = TranslationFrame(frame, convert_vector_space(loc))
 
-            anim.bone_frames[bone.name][0].append(tframe)
-            anim.bone_frames[bone.name][1].append(rframe)
+            anim.bone_frames[crc(bone.name)][0].append(tframe)
+            anim.bone_frames[crc(bone.name)][1].append(rframe)
 
 
     return anim

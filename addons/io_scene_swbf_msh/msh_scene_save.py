@@ -251,15 +251,15 @@ def _write_bln2(bln2: Writer, anim: Animation):
     bones = anim.bone_frames.keys()
     bln2.write_u32(len(bones))
 
-    for boneName in bones:
-        bln2.write_u32(crc(boneName), 0) 
+    for bone_crc in bones:
+        bln2.write_u32(bone_crc, 0) 
 
 def _write_skl2(skl2: Writer, anim: Animation):
     bones = anim.bone_frames.keys()
     skl2.write_u32(len(bones)) 
 
-    for boneName in bones:
-        skl2.write_u32(crc(boneName), 0) #default values from docs
+    for bone_crc in bones:
+        skl2.write_u32(bone_crc, 0) #default values from docs
         skl2.write_f32(1.0, 0.0, 0.0)
 
 '''
@@ -284,8 +284,8 @@ def _write_anm2(anm2: Writer, anim: Animation):
         
         kfr3.write_u32(len(anim.bone_frames))
 
-        for boneName in anim.bone_frames:
-            kfr3.write_u32(crc(boneName))
+        for bone_crc in anim.bone_frames:
+            kfr3.write_u32(bone_crc)
             kfr3.write_u32(0) #what is keyframe type?
 
             translation_frames, rotation_frames = anim.bone_frames[boneName]

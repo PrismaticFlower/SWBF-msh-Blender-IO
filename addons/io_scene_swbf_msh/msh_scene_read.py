@@ -15,7 +15,7 @@ model_counter = 0
 mndx_remap = {}
 
 
-def read_scene(input_file) -> Scene:
+def read_scene(input_file, anim_only=False) -> Scene:
 
     scene = Scene()
     scene.models = []
@@ -36,30 +36,31 @@ def read_scene(input_file) -> Scene:
             if "MSH2" in next_header:
 
                 with hedr.read_child() as msh2:
+                    
+                    if not anim_only:
+                        materials_list = []
 
-                    materials_list = []
+                        while (msh2.could_have_child()):
 
-                    while (msh2.could_have_child()):
+                            next_header = msh2.peak_next_header()
 
-                        next_header = msh2.peak_next_header()
+                            if "SINF" in next_header:
+                                with msh2.read_child() as sinf:
+                                    pass
 
-                        if "SINF" in next_header:
-                            with msh2.read_child() as sinf:
-                                pass
+                            elif "MATL" in next_header:
+                                with msh2.read_child() as matl:
+                                    materials_list += _read_matl_and_get_materials_list(matl)
+                                    for i,mat in enumerate(materials_list):
+                                        scene.materials[mat.name] = mat
 
-                        elif "MATL" in next_header:
-                            with msh2.read_child() as matl:
-                                materials_list += _read_matl_and_get_materials_list(matl)
-                                for i,mat in enumerate(materials_list):
-                                    scene.materials[mat.name] = mat
+                            elif "MODL" in next_header:
+                                while ("MODL" in msh2.peak_next_header()):
+                                    with msh2.read_child() as modl:
+                                        scene.models.append(_read_modl(modl, materials_list))
 
-                        elif "MODL" in next_header:
-                            while ("MODL" in msh2.peak_next_header()):
-                                with msh2.read_child() as modl:
-                                    scene.models.append(_read_modl(modl, materials_list))
-
-                        else:
-                            msh2.skip_bytes(1)
+                            else:
+                                msh2.skip_bytes(1)
 
             elif "SKL2" in next_header:
                 with hedr.read_child() as skl2:
@@ -68,7 +69,7 @@ def read_scene(input_file) -> Scene:
                 
             elif "ANM2" in next_header:
                 with hedr.read_child() as anm2:
-                    _read_anm2(anm2, scene.models)
+                    scene.animation = _read_anm2(anm2)
 
             else:
                 hedr.skip_bytes(1)
@@ -250,9 +251,8 @@ def _read_tran(tran: Reader) -> ModelTransform:
 
     tran.skip_bytes(12) #ignore scale
 
-    rot = tran.read_f32(4)
-    xform.rotation = Quaternion((rot[3], rot[0], rot[1], rot[2]))
-    xform.translation = Vector(tran.read_f32(3))
+    xform.rotation = tran.read_quat()
+    xform.translation = tran.read_vec()
 
     print(tran.indent + "Rot: {} Loc: {}".format(str(xform.rotation), str(xform.translation)))
 
@@ -381,11 +381,9 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
 
 
 
-def _read_anm2(anm2: Reader, models):
+def _read_anm2(anm2: Reader) -> Animation:
 
-    hash_dict = {}
-    for model in models:
-        hash_dict[crc(model.name)] = model.name
+    anim = Animation()
 
     while anm2.could_have_child():
 
@@ -402,14 +400,26 @@ def _read_anm2(anm2: Reader, models):
 
                 for _ in range(num_bones):
 
-                    kfr3.read_u32()
+                    bone_crc = kfr3.read_u32()
+
+                    frames = ([],[])
 
                     frametype = kfr3.read_u32()
 
                     num_loc_frames = kfr3.read_u32()
                     num_rot_frames = kfr3.read_u32()
 
-                    kfr3.skip_bytes(16 * num_loc_frames + 20 * num_rot_frames)
+                    for i in range(num_loc_frames):
+                        frames[0].append(TranslationFrame(kfr3.read_u32(), kfr3.read_vec()))
+
+                    for i in range(num_rot_frames):
+                        frames[1].append(RotationFrame(kfr3.read_u32(), kfr3.read_quat()))
+
+                    anim.bone_frames[bone_crc] = frames
+        else:
+            anm2.skip_bytes(1)
+
+    return anim
 
 
 

@@ -98,7 +98,7 @@ class Animation:
     """ Class representing 'CYCL' + 'KFR3' sections in a .msh file """
 
     name: str = "fullanimation"
-    bone_frames: Dict[str, Tuple[List[TranslationFrame], List[RotationFrame]]] = field(default_factory=dict)
+    bone_frames: Dict[int, Tuple[List[TranslationFrame], List[RotationFrame]]] = field(default_factory=dict)
 
     framerate: float = 29.97
     start_index : int = 0

@@ -18,44 +18,25 @@ import os
 
 
 
-#def import_anim(scene : Scene):
+
+
+
+
+
 
 def parent_object_to_bone(obj, armature, bone_name):
 
-    bpy.ops.object.select_all(action='DESELECT')
-    armature.select_set(True)
-    bpy.context.view_layer.objects.active = armature
-    bpy.ops.object.mode_set(mode='EDIT')
-    armature.data.edit_bones.active = armature.data.edit_bones[bone_name]
-    bpy.ops.object.mode_set(mode='OBJECT')
+    worldmat = obj.matrix_world
 
+    obj.parent = None
+    obj.parent = armature
+    obj.parent_type = 'BONE'
+    obj.parent_bone = bone_name
 
-    bpy.ops.object.select_all(action='DESELECT')
-    bpy.context.view_layer.objects.active = None
+    obj.matrix_basis = Matrix()
+    obj.matrix_parent_inverse = Matrix()
 
-
-    obj.select_set(True)
-    bpy.context.view_layer.objects.active = obj
-
-    bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
-    bpy.context.view_layer.objects.active = None
-
-
-    obj.select_set(True)
-    armature.select_set(True)
-    bpy.context.view_layer.objects.active = armature
-
-    bpy.ops.object.mode_set(mode='POSE')
-
-    armature.pose.bones[bone_name].bone.select = True
-
-    bpy.ops.object.parent_set(type="BONE")
-    armature.pose.bones[bone_name].bone.select = False
-
-
-
-    bpy.ops.object.mode_set(mode='OBJECT')
-    bpy.ops.object.select_all(action='DESELECT')
+    obj.matrix_world = worldmat
 
 
 

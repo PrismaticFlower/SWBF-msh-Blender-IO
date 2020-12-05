@@ -151,9 +151,22 @@ class ImportMSH(Operator, ImportHelper):
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
 
+    animation_only: BoolProperty(
+        name="Import Animation Only",
+        description="Import animation and append as a new action to currently selected armature.",
+        default=False
+    )
+
+
     def execute(self, context):
         with open(self.filepath, 'rb') as input_file:
-            extract_scene(self.filepath, read_scene(input_file))
+            scene = read_scene(input_file, self.animation_only)
+            
+            if not self.animation_only:
+                extract_scene(self.filepath, scene)
+            else:
+                extract_and_apply_anim(self.filepath, scene)
+
         return {'FINISHED'}
 
 def menu_func_import(self, context):
