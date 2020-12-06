@@ -36,11 +36,20 @@ def extract_and_apply_anim(filename, scene):
 		if not arma.animation_data:
 			arma.animation_data_create()
 
+		bone_bind_poses = {}
+		for bone in arma.data.bones:
+			local_mat = bone.matrix_local
+			if bone.parent:
+				local_mat = bone.parent.matrix_local.inverted() @ local_mat
+			bone_bind_poses[bone.name] = local_mat
+
+
 		for bone in arma.pose.bones:
 			if crc(bone.name) in scene.animation.bone_frames:
-				print("Inserting anim data for bone: {}".format(bone.name))
+				#print("Inserting anim data for bone: {}".format(bone.name))
 
-				bone_local_mat = arma.data.bones[bone.name].matrix_local
+
+				bone_local_mat = bone_bind_poses[bone.name]
 
 				translation_frames, rotation_frames = scene.animation.bone_frames[crc(bone.name)]
 
@@ -52,14 +61,19 @@ def extract_and_apply_anim(filename, scene):
 				fcurve_rot_y = action.fcurves.new(rot_data_path, index=2)
 				fcurve_rot_z = action.fcurves.new(rot_data_path, index=3)
 
+				print("\nBone name: " + bone.name)
+				print("\tRot: {}".format(quat_to_str(rotation_frames[0].rotation)))
+
 				for frame in rotation_frames:
 					i = frame.index
-					q = (bone_local_mat @ convert_rotation_space(frame.rotation).to_matrix().to_4x4()).to_quaternion()
+					q = (bone_local_mat.inverted() @ convert_rotation_space(frame.rotation).to_matrix().to_4x4()).to_quaternion()
 
 					fcurve_rot_w.keyframe_points.insert(i,q.w)
 					fcurve_rot_x.keyframe_points.insert(i,q.x)
 					fcurve_rot_y.keyframe_points.insert(i,q.y)
 					fcurve_rot_z.keyframe_points.insert(i,q.z)
+
+				print("\tLoc: {}".format(vec_to_str(translation_frames[0].translation)))
 
 
 				fcurve_loc_x = action.fcurves.new(loc_data_path, index=0)
@@ -68,7 +82,7 @@ def extract_and_apply_anim(filename, scene):
 
 				for frame in translation_frames:
 					i = frame.index
-					t = bone_local_mat @ convert_vector_space(Vector((0.0,0.0,0.0)))
+					t = convert_vector_space(frame.translation) - bone_local_mat.translation
 
 					fcurve_loc_x.keyframe_points.insert(i,t.x)
 					fcurve_loc_y.keyframe_points.insert(i,t.y)
@@ -113,9 +127,18 @@ def refined_skeleton_to_armature(refined_skeleton : List[Model], model_map):
         if bone.parent:
             edit_bone.parent = armature.edit_bones[bone.parent]
 
-        edit_bone.head = model_map[bone.name].matrix_world.translation
+        bone_obj = model_map[bone.name]
 
+        #edit_bone.head = bone_obj.matrix_world.translation
+
+        edit_bone.matrix = bone_obj.matrix_world
+        edit_bone.tail = bone_obj.matrix_world @ Vector((0.0,1.0,0.0))
+        #edit_bone.length = 1
+
+
+        '''
         bone_children = [b for b in get_model_children(bone, refined_skeleton)]
+        
         
         if bone_children:
             edit_bone.tail = Vector((-0.00001,0.0,0.0))
@@ -124,6 +147,7 @@ def refined_skeleton_to_armature(refined_skeleton : List[Model], model_map):
             edit_bone.tail = edit_bone.tail / len(bone_children) 
         else:
             edit_bone.tail = model_map[bone.name].matrix_world @ Vector((-0.2,0.0,0.0))
+        '''
 
 
     bpy.ops.object.mode_set(mode='OBJECT')
@@ -220,30 +244,31 @@ def extract_models(scene: Scene, materials_map):
 
             weights_offsets = {}
 
-            for i,seg in enumerate(model.geometry):
+            if model.geometry:
+	            for i,seg in enumerate(model.geometry):
 
-                if i == 0:
-                    mat_name = seg.material_name
+	                if i == 0:
+	                    mat_name = seg.material_name
 
-                verts += [tuple(convert_vector_space(v)) for v in seg.positions]
+	                verts += [tuple(convert_vector_space(v)) for v in seg.positions]
 
-                if seg.weights:
-                    weights_offsets[offset] = seg.weights
+	                if seg.weights:
+	                    weights_offsets[offset] = seg.weights
 
-                if seg.texcoords is not None:
-                    full_texcoords += seg.texcoords
-                else:
-                    full_texcoords += [(0.0,0.0) for _ in range(len(seg.positions))]
+	                if seg.texcoords is not None:
+	                    full_texcoords += seg.texcoords
+	                else:
+	                    full_texcoords += [(0.0,0.0) for _ in range(len(seg.positions))]
 
-                if seg.triangles:
-                    faces += [tuple([ind + offset for ind in tri]) for tri in seg.triangles]
-                else:
-                    for strip in seg.triangle_strips:
-                        for i in range(len(strip) - 2):
-                            face = tuple([offset + strip[j] for j in range(i,i+3)])
-                            faces.append(face)
+	                if seg.triangles:
+	                    faces += [tuple([ind + offset for ind in tri]) for tri in seg.triangles]
+	                else:
+	                    for strip in seg.triangle_strips:
+	                        for i in range(len(strip) - 2):
+	                            face = tuple([offset + strip[j] for j in range(i,i+3)])
+	                            faces.append(face)
 
-                offset += len(seg.positions)
+	                offset += len(seg.positions)
 
             new_mesh.from_pydata(verts, [], faces)
             new_mesh.update()
