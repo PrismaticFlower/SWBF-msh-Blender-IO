@@ -6,14 +6,15 @@ from typing import List, Dict
 from copy import copy
 import bpy
 from mathutils import Vector
-from .msh_model import Model, Animation
+from .msh_model import Model, Animation, ModelType
 from .msh_model_gather import gather_models
-from .msh_model_utilities import sort_by_parent, has_multiple_root_models, reparent_model_roots, get_model_world_matrix
+from .msh_model_utilities import sort_by_parent, has_multiple_root_models, reparent_model_roots, get_model_world_matrix, inject_dummy_data
 from .msh_model_triangle_strips import create_models_triangle_strips
 from .msh_material import *
 from .msh_material_gather import gather_materials
 from .msh_material_utilities import remove_unused_materials
 from .msh_utilities import *
+from .msh_anim_gather import extract_anim
 
 @dataclass
 class SceneAABB:

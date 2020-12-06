@@ -11,6 +11,8 @@ from .msh_model_utilities import *
 from .msh_utilities import *
 from .msh_model_gather import *
 
+from .crc import crc
+
 
 def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
 

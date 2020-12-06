@@ -1,6 +1,7 @@
 
 import io
 import struct
+from mathutils import Vector, Quaternion
 
 class Reader:
     def __init__(self, file, parent=None, indent=0, debug=False):

@@ -288,7 +288,7 @@ def _write_anm2(anm2: Writer, anim: Animation):
             kfr3.write_u32(bone_crc)
             kfr3.write_u32(0) #what is keyframe type?
 
-            translation_frames, rotation_frames = anim.bone_frames[boneName]
+            translation_frames, rotation_frames = anim.bone_frames[bone_crc]
 
             kfr3.write_u32(len(translation_frames), len(rotation_frames))
 

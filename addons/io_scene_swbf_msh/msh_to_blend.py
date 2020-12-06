@@ -18,8 +18,63 @@ import os
 
 
 
+def extract_and_apply_anim(filename, scene):
+
+	arma = bpy.context.view_layer.objects.active
+
+	if arma.type != 'ARMATURE':
+		raise Exception("Select an armature to attach the imported animation to!")
+
+	if scene.animation is None:
+		raise Exception("No animation found in msh file")
+	
+	else:
+		head, tail = os.path.split(filename)
+		anim_name = tail.split(".")[0]
+		action = bpy.data.actions.new(anim_name)
+
+		if not arma.animation_data:
+			arma.animation_data_create()
+
+		for bone in arma.pose.bones:
+			if crc(bone.name) in scene.animation.bone_frames:
+				print("Inserting anim data for bone: {}".format(bone.name))
+
+				bone_local_mat = arma.data.bones[bone.name].matrix_local
+
+				translation_frames, rotation_frames = scene.animation.bone_frames[crc(bone.name)]
+
+				loc_data_path = "pose.bones[\"{}\"].location".format(bone.name) 
+				rot_data_path = "pose.bones[\"{}\"].rotation_quaternion".format(bone.name) 
+
+				fcurve_rot_w = action.fcurves.new(rot_data_path, index=0)
+				fcurve_rot_x = action.fcurves.new(rot_data_path, index=1)
+				fcurve_rot_y = action.fcurves.new(rot_data_path, index=2)
+				fcurve_rot_z = action.fcurves.new(rot_data_path, index=3)
+
+				for frame in rotation_frames:
+					i = frame.index
+					q = (bone_local_mat @ convert_rotation_space(frame.rotation).to_matrix().to_4x4()).to_quaternion()
+
+					fcurve_rot_w.keyframe_points.insert(i,q.w)
+					fcurve_rot_x.keyframe_points.insert(i,q.x)
+					fcurve_rot_y.keyframe_points.insert(i,q.y)
+					fcurve_rot_z.keyframe_points.insert(i,q.z)
 
 
+				fcurve_loc_x = action.fcurves.new(loc_data_path, index=0)
+				fcurve_loc_y = action.fcurves.new(loc_data_path, index=1)
+				fcurve_loc_z = action.fcurves.new(loc_data_path, index=2)
+
+				for frame in translation_frames:
+					i = frame.index
+					t = bone_local_mat @ convert_vector_space(Vector((0.0,0.0,0.0)))
+
+					fcurve_loc_x.keyframe_points.insert(i,t.x)
+					fcurve_loc_y.keyframe_points.insert(i,t.y)
+					fcurve_loc_z.keyframe_points.insert(i,t.z)
+
+		arma.animation_data.action = action
 
 
 
@@ -37,11 +92,6 @@ def parent_object_to_bone(obj, armature, bone_name):
     obj.matrix_parent_inverse = Matrix()
 
     obj.matrix_world = worldmat
-
-
-
-
-
 
 
 
