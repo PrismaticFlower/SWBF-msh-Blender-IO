@@ -32,22 +32,13 @@ def extract_and_apply_anim(filename, scene):
         head, tail = os.path.split(filename)
         anim_name = tail.split(".")[0]
         action = bpy.data.actions.new(anim_name)
+        action.use_fake_user = True
 
         if not arma.animation_data:
             arma.animation_data_create()
 
 
-
         bone_bind_poses = {}
-        bone_stack_mats = {}
-
-        '''
-        for bone in arma.data.bones:
-            local_mat = bone.matrix_local
-            if bone.parent:
-                local_mat = bone.parent.matrix_local.inverted() @ local_mat
-            bone_bind_poses[bone.name] = local_mat
-        '''
 
         for bone in arma.data.bones:
             bone_obj = bpy.data.objects[bone.name]
@@ -67,7 +58,6 @@ def extract_and_apply_anim(filename, scene):
             bone_bind_poses[bone.name] = bind_mat.inverted() @ stack_mat
 
 
-
         for bone in arma.pose.bones:
             if crc(bone.name) in scene.animation.bone_frames:
                 #print("Inserting anim data for bone: {}".format(bone.name))
@@ -80,10 +70,10 @@ def extract_and_apply_anim(filename, scene):
                 rot_data_path = "pose.bones[\"{}\"].rotation_quaternion".format(bone.name) 
 
 
-                fcurve_rot_w = action.fcurves.new(rot_data_path, index=0)
-                fcurve_rot_x = action.fcurves.new(rot_data_path, index=1)
-                fcurve_rot_y = action.fcurves.new(rot_data_path, index=2)
-                fcurve_rot_z = action.fcurves.new(rot_data_path, index=3)
+                fcurve_rot_w = action.fcurves.new(rot_data_path, index=0, action_group=bone.name)
+                fcurve_rot_x = action.fcurves.new(rot_data_path, index=1, action_group=bone.name)
+                fcurve_rot_y = action.fcurves.new(rot_data_path, index=2, action_group=bone.name)
+                fcurve_rot_z = action.fcurves.new(rot_data_path, index=3, action_group=bone.name)
 
                 for frame in rotation_frames:
                     i = frame.index
@@ -95,9 +85,9 @@ def extract_and_apply_anim(filename, scene):
                     fcurve_rot_z.keyframe_points.insert(i,q.z)
 
 
-                fcurve_loc_x = action.fcurves.new(loc_data_path, index=0)
-                fcurve_loc_y = action.fcurves.new(loc_data_path, index=1)
-                fcurve_loc_z = action.fcurves.new(loc_data_path, index=2)
+                fcurve_loc_x = action.fcurves.new(loc_data_path, index=0, action_group=bone.name)
+                fcurve_loc_y = action.fcurves.new(loc_data_path, index=1, action_group=bone.name)
+                fcurve_loc_z = action.fcurves.new(loc_data_path, index=2, action_group=bone.name)
 
                 for frame in translation_frames:
                     i = frame.index
@@ -148,25 +138,22 @@ def refined_skeleton_to_armature(refined_skeleton : List[Model], model_map):
 
         bone_obj = model_map[bone.name]
 
-        #edit_bone.head = bone_obj.matrix_world.translation
-
         edit_bone.matrix = bone_obj.matrix_world
         edit_bone.tail = bone_obj.matrix_world @ Vector((0.0,1.0,0.0))
-        #edit_bone.length = 1
 
 
-        '''
         bone_children = [b for b in get_model_children(bone, refined_skeleton)]
         
-        
+        tail_pos = Vector()
         if bone_children:
-            edit_bone.tail = Vector((-0.00001,0.0,0.0))
             for bone_child in bone_children:
-                edit_bone.tail += model_map[bone_child.name].matrix_world.translation
-            edit_bone.tail = edit_bone.tail / len(bone_children) 
+                tail_pos += bone_obj.matrix_world.translation
+            tail_pos = tail_pos / len(bone_children) 
+            edit_bone.length = .5 #(tail_pos - edit_bone.head).magnitude
         else:
-            edit_bone.tail = model_map[bone.name].matrix_world @ Vector((-0.2,0.0,0.0))
-        '''
+            bone_length = .5# edit_bone.parent.length if edit_bone.parent is not None else .5
+            edit_bone.tail = bone_obj.matrix_world @ Vector((0.0,bone_length,0.0))
+        
 
 
     bpy.ops.object.mode_set(mode='OBJECT')
@@ -205,14 +192,6 @@ def extract_refined_skeleton(scene: Scene):
 
 
     refined_skeleton_models = []
-
-    '''
-    for bone in skeleton_models:
-
-        if bone.parent:
-            if 
-    '''
-
     
     for bone in skeleton_models:
 
@@ -226,7 +205,6 @@ def extract_refined_skeleton(scene: Scene):
                 if crc(curr_ancestor.name) in scene.skeleton or curr_ancestor.name == scene.models[0].name:
                     new_model = Model()
                     new_model.name = bone.name
-                    print("Adding {} to refined skeleton...".format(bone.name))
                     new_model.parent = curr_ancestor.name if curr_ancestor.name != scene.models[0].name else ""
 
                     loc, rot, _ = stacked_transform.decompose()
@@ -416,23 +394,6 @@ def extract_scene(filepath: str, scene: Scene):
         obj_loc, obj_rot, _ = bone_obj_local.decompose()
 
         loc, rot, _ = bone_local.decompose()
-
-        locdiff = obj_loc - loc
-        quatdiff = obj_rot - rot
-
-        if quatdiff.magnitude > .01:
-            print("Big quat diff here")
-            print("\t{}: obj quat: {}  bone quat: {}".format(bone.name, quat_to_str(obj_rot), quat_to_str(rot)))    
-         
-
-        #if locdiff.magnitude > .01:
-        #    print("Big loc diff here")
-        #    print("\t{}: obj loc: {}  bone loc: {}".format(bone.name, vec_to_str(obj_loc), vec_to_str(loc)))  
-
-
-
-
-
 
 
 

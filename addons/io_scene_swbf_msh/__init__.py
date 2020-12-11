@@ -54,7 +54,7 @@ if "bpy" in locals():
 
 import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
-from bpy.props import BoolProperty, EnumProperty
+from bpy.props import BoolProperty, EnumProperty, CollectionProperty
 from bpy.types import Operator
 from .msh_scene import create_scene
 from .msh_scene_save import save_scene
@@ -145,6 +145,11 @@ class ImportMSH(Operator, ImportHelper):
     bl_label = "Import SWBF .msh File"
     filename_ext = ".msh"
 
+    files: CollectionProperty(
+            name="File Path",
+            type=bpy.types.OperatorFileListElement,
+            )
+
     filter_glob: StringProperty(
         default="*.msh",
         options={'HIDDEN'},
@@ -159,13 +164,16 @@ class ImportMSH(Operator, ImportHelper):
 
 
     def execute(self, context):
-        with open(self.filepath, 'rb') as input_file:
-            scene = read_scene(input_file, self.animation_only)
-            
-            if not self.animation_only:
-                extract_scene(self.filepath, scene)
-            else:
-                extract_and_apply_anim(self.filepath, scene)
+        dirname = os.path.dirname(self.filepath)
+        for file in self.files:
+            filepath = os.path.join(dirname, file.name)
+            with open(filepath, 'rb') as input_file:
+                scene = read_scene(input_file, self.animation_only)
+                
+                if not self.animation_only:
+                    extract_scene(filepath, scene)
+                else:
+                    extract_and_apply_anim(filepath, scene)
 
         return {'FINISHED'}
 
