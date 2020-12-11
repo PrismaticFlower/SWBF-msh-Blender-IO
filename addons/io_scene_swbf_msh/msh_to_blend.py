@@ -20,75 +20,94 @@ import os
 
 def extract_and_apply_anim(filename, scene):
 
-	arma = bpy.context.view_layer.objects.active
+    arma = bpy.context.view_layer.objects.active
 
-	if arma.type != 'ARMATURE':
-		raise Exception("Select an armature to attach the imported animation to!")
+    if arma.type != 'ARMATURE':
+        raise Exception("Select an armature to attach the imported animation to!")
 
-	if scene.animation is None:
-		raise Exception("No animation found in msh file")
-	
-	else:
-		head, tail = os.path.split(filename)
-		anim_name = tail.split(".")[0]
-		action = bpy.data.actions.new(anim_name)
+    if scene.animation is None:
+        raise Exception("No animation found in msh file!")
+    
+    else:
+        head, tail = os.path.split(filename)
+        anim_name = tail.split(".")[0]
+        action = bpy.data.actions.new(anim_name)
 
-		if not arma.animation_data:
-			arma.animation_data_create()
-
-		bone_bind_poses = {}
-		for bone in arma.data.bones:
-			local_mat = bone.matrix_local
-			if bone.parent:
-				local_mat = bone.parent.matrix_local.inverted() @ local_mat
-			bone_bind_poses[bone.name] = local_mat
+        if not arma.animation_data:
+            arma.animation_data_create()
 
 
-		for bone in arma.pose.bones:
-			if crc(bone.name) in scene.animation.bone_frames:
-				#print("Inserting anim data for bone: {}".format(bone.name))
+
+        bone_bind_poses = {}
+        bone_stack_mats = {}
+
+        '''
+        for bone in arma.data.bones:
+            local_mat = bone.matrix_local
+            if bone.parent:
+                local_mat = bone.parent.matrix_local.inverted() @ local_mat
+            bone_bind_poses[bone.name] = local_mat
+        '''
+
+        for bone in arma.data.bones:
+            bone_obj = bpy.data.objects[bone.name]
+            bone_obj_parent = bone_obj.parent
+
+            bind_mat = bone_obj.matrix_local
+            stack_mat = Matrix.Identity(4)
 
 
-				bone_local_mat = bone_bind_poses[bone.name]
+            while(True):
+                if bone_obj_parent is None or bone_obj_parent.name in arma.data.bones:
+                    break
+                bind_mat = bone_obj_parent.matrix_local @ bind_mat
+                stack_mat = bone_obj_parent.matrix_local @ stack_mat
+                bone_obj_parent = bone_obj_parent.parent
 
-				translation_frames, rotation_frames = scene.animation.bone_frames[crc(bone.name)]
-
-				loc_data_path = "pose.bones[\"{}\"].location".format(bone.name) 
-				rot_data_path = "pose.bones[\"{}\"].rotation_quaternion".format(bone.name) 
-
-				fcurve_rot_w = action.fcurves.new(rot_data_path, index=0)
-				fcurve_rot_x = action.fcurves.new(rot_data_path, index=1)
-				fcurve_rot_y = action.fcurves.new(rot_data_path, index=2)
-				fcurve_rot_z = action.fcurves.new(rot_data_path, index=3)
-
-				print("\nBone name: " + bone.name)
-				print("\tRot: {}".format(quat_to_str(rotation_frames[0].rotation)))
-
-				for frame in rotation_frames:
-					i = frame.index
-					q = (bone_local_mat.inverted() @ convert_rotation_space(frame.rotation).to_matrix().to_4x4()).to_quaternion()
-
-					fcurve_rot_w.keyframe_points.insert(i,q.w)
-					fcurve_rot_x.keyframe_points.insert(i,q.x)
-					fcurve_rot_y.keyframe_points.insert(i,q.y)
-					fcurve_rot_z.keyframe_points.insert(i,q.z)
-
-				print("\tLoc: {}".format(vec_to_str(translation_frames[0].translation)))
+            bone_bind_poses[bone.name] = bind_mat.inverted() @ stack_mat
 
 
-				fcurve_loc_x = action.fcurves.new(loc_data_path, index=0)
-				fcurve_loc_y = action.fcurves.new(loc_data_path, index=1)
-				fcurve_loc_z = action.fcurves.new(loc_data_path, index=2)
 
-				for frame in translation_frames:
-					i = frame.index
-					t = convert_vector_space(frame.translation) - bone_local_mat.translation
+        for bone in arma.pose.bones:
+            if crc(bone.name) in scene.animation.bone_frames:
+                #print("Inserting anim data for bone: {}".format(bone.name))
 
-					fcurve_loc_x.keyframe_points.insert(i,t.x)
-					fcurve_loc_y.keyframe_points.insert(i,t.y)
-					fcurve_loc_z.keyframe_points.insert(i,t.z)
+                bind_mat = bone_bind_poses[bone.name]
 
-		arma.animation_data.action = action
+                translation_frames, rotation_frames = scene.animation.bone_frames[crc(bone.name)]
+
+                loc_data_path = "pose.bones[\"{}\"].location".format(bone.name) 
+                rot_data_path = "pose.bones[\"{}\"].rotation_quaternion".format(bone.name) 
+
+
+                fcurve_rot_w = action.fcurves.new(rot_data_path, index=0)
+                fcurve_rot_x = action.fcurves.new(rot_data_path, index=1)
+                fcurve_rot_y = action.fcurves.new(rot_data_path, index=2)
+                fcurve_rot_z = action.fcurves.new(rot_data_path, index=3)
+
+                for frame in rotation_frames:
+                    i = frame.index
+                    q = (bind_mat @ convert_rotation_space(frame.rotation).to_matrix().to_4x4()).to_quaternion()
+
+                    fcurve_rot_w.keyframe_points.insert(i,q.w)
+                    fcurve_rot_x.keyframe_points.insert(i,q.x)
+                    fcurve_rot_y.keyframe_points.insert(i,q.y)
+                    fcurve_rot_z.keyframe_points.insert(i,q.z)
+
+
+                fcurve_loc_x = action.fcurves.new(loc_data_path, index=0)
+                fcurve_loc_y = action.fcurves.new(loc_data_path, index=1)
+                fcurve_loc_z = action.fcurves.new(loc_data_path, index=2)
+
+                for frame in translation_frames:
+                    i = frame.index
+                    t = (bind_mat @ Matrix.Translation(convert_vector_space(frame.translation))).translation
+
+                    fcurve_loc_x.keyframe_points.insert(i,t.x)
+                    fcurve_loc_y.keyframe_points.insert(i,t.y)
+                    fcurve_loc_z.keyframe_points.insert(i,t.z)
+
+        arma.animation_data.action = action
 
 
 
@@ -187,6 +206,14 @@ def extract_refined_skeleton(scene: Scene):
 
     refined_skeleton_models = []
 
+    '''
+    for bone in skeleton_models:
+
+        if bone.parent:
+            if 
+    '''
+
+    
     for bone in skeleton_models:
 
         if bone.parent:
@@ -213,7 +240,7 @@ def extract_refined_skeleton(scene: Scene):
                 else:
                     curr_ancestor = model_dict[curr_ancestor.parent]
                     stacked_transform = model_transform_to_matrix(curr_ancestor.transform) @ stacked_transform
-
+    
     return sort_by_parent(refined_skeleton_models)                  
 
 
@@ -245,30 +272,30 @@ def extract_models(scene: Scene, materials_map):
             weights_offsets = {}
 
             if model.geometry:
-	            for i,seg in enumerate(model.geometry):
+                for i,seg in enumerate(model.geometry):
 
-	                if i == 0:
-	                    mat_name = seg.material_name
+                    if i == 0:
+                        mat_name = seg.material_name
 
-	                verts += [tuple(convert_vector_space(v)) for v in seg.positions]
+                    verts += [tuple(convert_vector_space(v)) for v in seg.positions]
 
-	                if seg.weights:
-	                    weights_offsets[offset] = seg.weights
+                    if seg.weights:
+                        weights_offsets[offset] = seg.weights
 
-	                if seg.texcoords is not None:
-	                    full_texcoords += seg.texcoords
-	                else:
-	                    full_texcoords += [(0.0,0.0) for _ in range(len(seg.positions))]
+                    if seg.texcoords is not None:
+                        full_texcoords += seg.texcoords
+                    else:
+                        full_texcoords += [(0.0,0.0) for _ in range(len(seg.positions))]
 
-	                if seg.triangles:
-	                    faces += [tuple([ind + offset for ind in tri]) for tri in seg.triangles]
-	                else:
-	                    for strip in seg.triangle_strips:
-	                        for i in range(len(strip) - 2):
-	                            face = tuple([offset + strip[j] for j in range(i,i+3)])
-	                            faces.append(face)
+                    if seg.triangles:
+                        faces += [tuple([ind + offset for ind in tri]) for tri in seg.triangles]
+                    else:
+                        for strip in seg.triangle_strips:
+                            for i in range(len(strip) - 2):
+                                face = tuple([offset + strip[j] for j in range(i,i+3)])
+                                faces.append(face)
 
-	                offset += len(seg.positions)
+                    offset += len(seg.positions)
 
             new_mesh.from_pydata(verts, [], faces)
             new_mesh.update()
@@ -379,6 +406,36 @@ def extract_scene(filepath: str, scene: Scene):
     skel = extract_refined_skeleton(scene)
     armature = refined_skeleton_to_armature(skel, model_map)
 
+
+    for bone in armature.data.bones:
+        bone_local = bone.matrix_local
+        if bone.parent:
+            bone_local = bone.parent.matrix_local.inverted() @ bone_local
+
+        bone_obj_local = bpy.data.objects[bone.name].matrix_local
+        obj_loc, obj_rot, _ = bone_obj_local.decompose()
+
+        loc, rot, _ = bone_local.decompose()
+
+        locdiff = obj_loc - loc
+        quatdiff = obj_rot - rot
+
+        if quatdiff.magnitude > .01:
+            print("Big quat diff here")
+            print("\t{}: obj quat: {}  bone quat: {}".format(bone.name, quat_to_str(obj_rot), quat_to_str(rot)))    
+         
+
+        #if locdiff.magnitude > .01:
+        #    print("Big loc diff here")
+        #    print("\t{}: obj loc: {}  bone loc: {}".format(bone.name, vec_to_str(obj_loc), vec_to_str(loc)))  
+
+
+
+
+
+
+
+
     reparent_obj = None
     for model in scene.models:
         if model.model_type == ModelType.SKIN:
@@ -398,15 +455,12 @@ def extract_scene(filepath: str, scene: Scene):
             armature.select_set(False)
             bpy.context.view_layer.objects.active = None
 
-    print("About to parent to bones....")
-
     if armature is not None:
         for bone in armature.data.bones:
             for model in scene.models:
-                if model.parent in armature.data.bones and model.name not in armature.data.bones:
-                    parent_object_to_bone(model_map[model.name], armature, model.parent)
+                if model.parent in armature.data.bones and model.model_type != ModelType.NULL:
+                    pass#parent_object_to_bone(model_map[model.name], armature, model.parent)
 
-    print("Done parenting to bones")
     '''
     if reparent_obj is not None and armature.name != reparent_obj.name:
 
@@ -418,14 +472,14 @@ def extract_scene(filepath: str, scene: Scene):
         armature.select_set(False)
         reparent_obj.select_set(False)
         bpy.context.view_layer.objects.active = None
-
+    '''
 
     for model in scene.models:
         if model.name in bpy.data.objects:
             obj = bpy.data.objects[model.name]
-            if get_is_model_hidden(obj) and len(obj.children) == 0:
+            if get_is_model_hidden(obj) and len(obj.children) == 0 and model.model_type != ModelType.NULL:
                 obj.hide_set(True)
-    '''
+    
 
 
 

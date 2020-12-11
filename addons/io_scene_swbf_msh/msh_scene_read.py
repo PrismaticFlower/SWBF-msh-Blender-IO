@@ -33,7 +33,7 @@ def read_scene(input_file, anim_only=False) -> Scene:
 
             next_header = hedr.peak_next_header()
 
-            if "MSH2" in next_header:
+            if next_header == "MSH2":
 
                 with hedr.read_child() as msh2:
                     
@@ -44,30 +44,29 @@ def read_scene(input_file, anim_only=False) -> Scene:
 
                             next_header = msh2.peak_next_header()
 
-                            if "SINF" in next_header:
+                            if next_header == "SINF":
                                 with msh2.read_child() as sinf:
                                     pass
 
-                            elif "MATL" in next_header:
+                            elif next_header == "MATL":
                                 with msh2.read_child() as matl:
                                     materials_list += _read_matl_and_get_materials_list(matl)
                                     for i,mat in enumerate(materials_list):
                                         scene.materials[mat.name] = mat
 
-                            elif "MODL" in next_header:
-                                while ("MODL" in msh2.peak_next_header()):
-                                    with msh2.read_child() as modl:
-                                        scene.models.append(_read_modl(modl, materials_list))
+                            elif next_header == "MODL":
+                                with msh2.read_child() as modl:
+                                    scene.models.append(_read_modl(modl, materials_list))
 
                             else:
                                 msh2.skip_bytes(1)
 
-            elif "SKL2" in next_header:
+            elif next_header == "SKL2":
                 with hedr.read_child() as skl2:
                     num_bones = skl2.read_u32()
                     scene.skeleton = [skl2.read_u32(5)[0] for i in range(num_bones)]
                 
-            elif "ANM2" in next_header:
+            elif next_header == "ANM2":
                 with hedr.read_child() as anm2:
                     scene.animation = _read_anm2(anm2)
 
@@ -118,36 +117,36 @@ def _read_matd(matd: Reader) -> Material:
 
         next_header = matd.peak_next_header()
 
-        if "NAME" in next_header:
+        if next_header == "NAME":
             with matd.read_child() as name:
                 mat.name = name.read_string()
 
-        elif "DATA" in next_header:
+        elif next_header == "DATA":
             with matd.read_child() as data:
                 data.read_f32(4) # Diffuse Color (Seams to get ignored by modelmunge)
                 mat.specular_color = data.read_f32(4)
                 data.read_f32(4) # Ambient Color (Seams to get ignored by modelmunge and Zero(?))
                 data.read_f32()  # Specular Exponent/Decay (Gets ignored by RedEngine in SWBFII for all known materials)    
     
-        elif "ATRB" in next_header:
+        elif next_header == "ATRB":
             with matd.read_child() as atrb:
                 mat.flags = atrb.read_u8()
                 mat.rendertype = atrb.read_u8()
                 mat.data = atrb.read_u8(2)
 
-        elif "TX0D" in next_header:
+        elif next_header == "TX0D":
             with matd.read_child() as tx0d:
                 mat.texture0 = tx0d.read_string()
 
-        elif "TX1D" in next_header:
+        elif next_header == "TX1D":
             with matd.read_child() as tx1d:
                 mat.texture1 = tx1d.read_string()
 
-        elif "TX2D" in next_header:
+        elif next_header == "TX2D":
             with matd.read_child() as tx2d:
                 mat.texture2 = tx2d.read_string()
 
-        elif "TX3D" in next_header:
+        elif next_header == "TX3D":
             with matd.read_child() as tx3d:
                 mat.texture3 = tx3d.read_string()
 
@@ -165,11 +164,11 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
 
         next_header = modl.peak_next_header()
 
-        if "MTYP" in next_header:
+        if next_header == "MTYP":
             with modl.read_child() as mtyp:
                 model.model_type = ModelType(mtyp.read_u32())
 
-        elif "MNDX" in next_header:
+        elif next_header == "MNDX":
             with modl.read_child() as mndx:
                 index = mndx.read_u32()
 
@@ -181,23 +180,23 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
 
                 model_counter += 1
 
-        elif "NAME" in next_header:
+        elif next_header == "NAME":
             with modl.read_child() as name:
                 model.name = name.read_string()
 
-        elif "PRNT" in next_header:
+        elif next_header == "PRNT":
             with modl.read_child() as prnt:
                 model.parent = prnt.read_string()
 
-        elif "FLGS" in next_header:
+        elif next_header == "FLGS":
             with modl.read_child() as flgs:
                 model.hidden = flgs.read_u32()
 
-        elif "TRAN" in next_header:
+        elif next_header == "TRAN":
             with modl.read_child() as tran:
                 model.transform = _read_tran(tran)
 
-        elif "GEOM" in next_header:
+        elif next_header == "GEOM":
             model.geometry = []
             envelope = []
 
@@ -206,11 +205,11 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
                 while geom.could_have_child():
                     next_header_geom = geom.peak_next_header()
 
-                    if "SEGM" in next_header_geom:
+                    if next_header_geom == "SEGM":
                         with geom.read_child() as segm:
                            model.geometry.append(_read_segm(segm, materials_list))
 
-                    elif "ENVL" in next_header_geom:
+                    elif next_header_geom == "ENVL":
                         with geom.read_child() as envl:
                             num_indicies = envl.read_u32()
                             envelope += [envl.read_u32() for _ in range(num_indicies)]
@@ -228,7 +227,7 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
                             index = vertex_weight.bone
                             weight_set[i] = VertexWeight(vertex_weight.weight, envelope[vertex_weight.bone])
 
-        elif "SWCI" in next_header:
+        elif next_header == "SWCI":
             prim = CollisionPrimitive()
             with modl.read_child() as swci:
                 prim.shape = CollisionPrimitiveShape(swci.read_u32())
@@ -267,25 +266,25 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
 
         next_header = segm.peak_next_header()
 
-        if "MATI" in next_header:
+        if next_header == "MATI":
             with segm.read_child() as mati:
                 geometry_seg.material_name = materials_list[mati.read_u32()].name
 
-        elif "POSL" in next_header:
+        elif next_header == "POSL":
             with segm.read_child() as posl:
                 num_positions = posl.read_u32()
 
                 for _ in range(num_positions):
                     geometry_seg.positions.append(Vector(posl.read_f32(3)))
 
-        elif "NRML" in next_header:
+        elif next_header == "NRML":
             with segm.read_child() as nrml:
                 num_normals = nrml.read_u32()
                 
                 for _ in range(num_positions):
                     geometry_seg.normals.append(Vector(nrml.read_f32(3))) 
 
-        elif "CLRL" in next_header:
+        elif next_header == "CLRL":
             geometry_seg.colors = []
 
             with segm.read_child() as clrl:
@@ -294,14 +293,14 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                 for _ in range(num_colors):
                     geometry_seg.colors += unpack_color(clrl.read_u32())
 
-        elif "UV0L" in next_header:
+        elif next_header == "UV0L":
             with segm.read_child() as uv0l:
                 num_texcoords = uv0l.read_u32()
 
                 for _ in range(num_texcoords):
                     geometry_seg.texcoords.append(Vector(uv0l.read_f32(2))) 
 
-        elif "NDXL" in next_header:
+        elif next_header == "NDXL":
             with segm.read_child() as ndxl:
                 num_polygons = ndxl.read_u32()
 
@@ -309,14 +308,14 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                     polygon = ndxl.read_u16(ndxl.read_u16())
                     geometry_seg.polygons.append(polygon)
 
-        elif "NDXT" in next_header:
+        elif next_header == "NDXT":
             with segm.read_child() as ndxt:
                 num_tris = ndxt.read_u32()
 
                 for _ in range(num_tris):
                     geometry_seg.triangles.append(ndxt.read_u16(3))
 
-        elif "STRP" in next_header:
+        elif next_header == "STRP":
             strips : List[List[int]] = []
 
             with segm.read_child() as strp:
@@ -357,7 +356,7 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
             #if segm.read_u16 != 0: #trailing 0 bug https://schlechtwetterfront.github.io/ze_filetypes/msh.html#STRP
             #    segm.skip_bytes(-2)
 
-        elif "WGHT" in next_header:
+        elif next_header == "WGHT":
             with segm.read_child() as wght:
                 
                 geometry_seg.weights = []
@@ -389,11 +388,19 @@ def _read_anm2(anm2: Reader) -> Animation:
 
         next_header = anm2.peak_next_header()
 
-        if "CYCL" in next_header:
+        if next_header == "CYCL":
             with anm2.read_child() as cycl:
                 pass
 
-        elif "KFR3" in next_header:
+                '''
+                num_anims = cycl.read_u32()
+
+                for _ in range(num_anims):
+                    cycl.skip_bytes(64)
+                    print("CYCL play style {}".format(cycl.read_u32(4)[1]))
+                '''
+
+        elif next_header == "KFR3":
             with anm2.read_child() as kfr3:
 
                 num_bones = kfr3.read_u32()
