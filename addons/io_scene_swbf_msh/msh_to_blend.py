@@ -12,6 +12,7 @@ from .msh_model import *
 from .msh_model_utilities import *
 from .msh_utilities import *
 from .msh_model_gather import *
+from .msh_skeleton_properties import *
 from .crc import *
 
 import os
@@ -125,6 +126,16 @@ def refined_skeleton_to_armature(refined_skeleton : List[Model], model_map):
 
     bpy.context.view_layer.active_layer_collection.collection.objects.link(armature_obj)
     armature_obj.select_set(True)
+
+    preserved = armature_obj.data.swbf_msh_skel
+    for model in refined_skeleton:
+        loc,rot,_ = model_map[model.name].matrix_world.decompose()
+        print(str(loc))
+        entry = preserved.add()
+        entry.name = model.name
+        entry.loc = loc
+        entry.rot = rot
+        entry.parent = model.parent
 
     bpy.context.view_layer.objects.active = armature_obj
     bpy.ops.object.mode_set(mode='EDIT')

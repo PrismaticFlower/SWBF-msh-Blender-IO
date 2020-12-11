@@ -60,6 +60,7 @@ from .msh_scene import create_scene
 from .msh_scene_save import save_scene
 from .msh_scene_read import read_scene
 from .msh_material_properties import *
+from .msh_skeleton_properties import *
 from .msh_to_blend import *
 
 
@@ -186,19 +187,30 @@ def menu_func_import(self, context):
 def register():
     bpy.utils.register_class(MaterialProperties)
     bpy.utils.register_class(MaterialPropertiesPanel)
+
+    bpy.utils.register_class(SkeletonProperties)
+    bpy.utils.register_class(SkeletonPropertiesPanel)
+
     bpy.utils.register_class(ExportMSH)
     bpy.utils.register_class(ImportMSH)
 
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
+
     bpy.types.Material.swbf_msh = bpy.props.PointerProperty(type=MaterialProperties)
+    bpy.types.Armature.swbf_msh_skel = bpy.props.CollectionProperty(type=SkeletonProperties)
 
 
 def unregister():
     bpy.utils.unregister_class(MaterialProperties)
     bpy.utils.unregister_class(MaterialPropertiesPanel)
+
+    bpy.utils.unregister_class(SkeletonProperties)
+    bpy.utils.unregister_class(SkeletonPropertiesPanel)
+
     bpy.utils.unregister_class(ExportMSH)
     bpy.utils.unregister_class(ImportMSH)
+
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
 
