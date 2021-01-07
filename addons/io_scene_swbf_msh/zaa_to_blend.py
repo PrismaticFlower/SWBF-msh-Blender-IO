@@ -1,3 +1,11 @@
+"""
+Script for reading zaabin/zaa files and applying the unmunged animation
+to the currently selected armature.
+
+As regards decompress_curves, I should really make a separate AnimationSet
+dataclass instead of returning a convoluted nested dict.
+"""
+
 import os
 import bpy
 import re
@@ -19,54 +27,50 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
     decompressed_anims: Dict[int, Dict[int, List[ Dict[int,float]]]] = {}
 
     with ZAAReader(input_file) as head:
+
+        # Dont read SMNA as child, since it has a length field always set to 0...
         head.skip_until("SMNA")
         head.skip_bytes(20)
         num_anims = head.read_u16()
 
-        print("\nFile contains {} animations\n".format(num_anims))
+        #print("\nFile contains {} animations\n".format(num_anims))
 
         head.skip_bytes(2)
 
         anim_crcs = []
         anim_metadata = {}
 
+        # Read metadata (crc, num frames, num bones) for each anim
         with head.read_child() as mina:
 
             for i in range(num_anims):
                 mina.skip_bytes(8)
 
-                anim_hash = mina.read_u32() 
-                anim_crcs += [anim_hash]
+                anim_crc = mina.read_u32() 
+                anim_crcs.append(anim_crc)
 
-                anim_data = {}
-                anim_data["num_frames"] = mina.read_u16()
-                anim_data["num_bones"]  = mina.read_u16()
+                anim_metadata[anim_crc] = {"num_frames" : mina.read_u16(), "num_bones" : mina.read_u16()}
 
-                anim_metadata[anim_hash] = anim_data
-
-
+        # Read TADA offsets and quantization parameters for each rot + loc component, for each bone, for each anim
         with head.read_child() as tnja:
 
-            for i,anim_crc in enumerate(anim_crcs):
+            for i, anim_crc in enumerate(anim_crcs):
 
                 bone_params = {}
 
                 for _ in range(anim_metadata[anim_crc]["num_bones"]):
 
-                    bone_hash = tnja.read_u32()
+                    bone_crc = tnja.read_u32()              
 
-                    rot_offsets = [tnja.read_u32() for _ in range(4)]
-                    loc_offsets = [tnja.read_u32() for _ in range(3)]    
-                    
-                    qparams = [tnja.read_f32() for _ in range(4)]
-
-                    params = {"rot_offsets" : rot_offsets, "loc_offsets" : loc_offsets, "qparams" : qparams}
-
-                    bone_params[bone_hash] = params
+                    bone_params[bone_crc] = {
+                        "rot_offsets" : [tnja.read_u32() for _ in range(4)], # Offsets into TADA for rotation 
+                        "loc_offsets" : [tnja.read_u32() for _ in range(3)], # and translation curves
+                        "qparams"     : [tnja.read_f32() for _ in range(4)], # Translation quantization parameters, 3 biases, 1 multiplier
+                    }
 
                 anim_metadata[anim_crc]["bone_params"] = bone_params
 
-
+        # Decompress/dequantize frame data into discrete per-component curves
         with head.read_child() as tada:
 
             for anim_crc in anim_crcs:
@@ -78,107 +82,100 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
 
                 #print("\n\tAnim hash: {} Num frames: {} Num joints: {}".format(hex(anim_crc), num_frames, num_bones))
 
-                #num_frames = 5
+                for bone_num, bone_crc in enumerate(anim_metadata[anim_crc]["bone_params"]):
 
-                for bone_num, bone_hash in enumerate(anim_metadata[anim_crc]["bone_params"]):
+                    bone_curves = []
 
-
-
-                    keyframes = []
-
-                    params_bone = anim_metadata[anim_crc]["bone_params"][bone_hash]
+                    params_bone = anim_metadata[anim_crc]["bone_params"][bone_crc]
                     
                     offsets_list = params_bone["rot_offsets"] + params_bone["loc_offsets"]
                     qparams = params_bone["qparams"]
 
-                    #print("\n\t\tBone #{} hash: {}".format(bone_num,hex(bone_hash)))
+                    #print("\n\t\tBone #{} hash: {}".format(bone_num,hex(bone_crc)))
                     #print("\n\t\tQParams: {}, {}, {}, {}".format(*qparams))
                     
-                    for o,start_offset in enumerate(offsets_list):
+                    for o, start_offset in enumerate(offsets_list):
+                        
+                        # Skip to start of compressed data for component, as specified in TNJA
                         tada.skip_bytes(start_offset)
 
-                        curve = {}
-                        val = 0.0
+                        # Init curve dict
+                        curve : Dict[int,float] = {}
 
+                        # Init accumulator
+                        accumulator = 0.0
+
+
+                        # 2047 = max val of signed 12 bit int, the (overwhelmingly) common compression amount.
+                        # This is used for all rotation components in the file, with no offset
                         if o < 4:
                             mult = 1 / 2047
-                            offset = 0.0
+                            bias = 0.0
+
+                        # Translations have specific quantization parameters; biases for each component and 
+                        # a single multiplier for all three
                         else:
                             mult = qparams[-1]
-                            offset = qparams[o - 4]
+                            bias = qparams[o - 4]
 
-                            #print("\n\t\t\tBias = {}, multiplier = {}".format(offset, mult))
+                            #print("\n\t\t\tBias = {}, multiplier = {}".format(bias, mult))
 
                         #print("\n\t\t\tOffset {}: {} ({}, {} remaining)".format(o,start_offset, tada.get_current_pos(), tada.how_much_left(tada.get_current_pos())))
 
                         j = 0
-                        exit_loop = False
-                        while (j < num_frames and not exit_loop):
-                            val = offset + mult * tada.read_i16()
-                            curve[j if j < num_frames else num_frames] = val
+                        while (j < num_frames):
+                            accumulator = bias + mult * tada.read_i16()
+                            curve[j if j < num_frames else num_frames] = accumulator
 
-                            #print("\t\t\t\t{}: {}".format(j, val))
+                            #print("\t\t\t\t{}: {}".format(j, accumulator))
                             j+=1
 
-                            if (j >= num_frames):
-                                break
-
-                            while (True):
-
-                                if (j >= num_frames):
-                                    exit_loop = True
-                                    break
+                            while (j < num_frames):
 
                                 control = tada.read_i8()
 
-                                if control == 0x00:
-                                    #curve[j if j < num_frames else num_frames] = val
-                                    #print("\t\t\t\tControl: HOLDING FOR A FRAME")
-                                    #print("\t\t\t\t{}: {}".format(j, val))
-                                    j+=1
-
-                                    if (j >= num_frames):
-                                        break
-
-                                elif control == -0x7f:
+                                # Reset the accumulator to next dequantized i16
+                                if control == -0x7f:
                                     #print("\t\t\t\tControl: READING NEXT FRAME")
-                                    break #get ready for new frame
+                                    break
 
+                                # RLE: hold current accumulator for the next u8 frames 
                                 elif control == -0x80:
                                     num_skips = tada.read_u8()
                                     #print("\t\t\t\tControl: HOLDING FOR {} FRAMES".format(num_skips))
+                                    j += num_skips
 
-                                    for _ in range(num_skips):
-                                        j+=1
-
-                                        if (j >= num_frames):
-                                            break
-
+                                # If not a special value, increment accumulator by the dequantized i8
+                                # The bias is NOT applied here, only for accumulator resets
                                 else:
-                                    val += mult * float(control) 
-                                    curve[j if j < num_frames else num_frames] = val
+                                    accumulator += mult * float(control) 
+                                    curve[j if j < num_frames else num_frames] = accumulator
 
-                                    #print("\t\t\t\t{}: {}".format(j, val))
+                                    #print("\t\t\t\t{}: {}".format(j, accumulator))
                                     j+=1 
 
-                        curve[num_frames - 1] = val                          
+                        curve[num_frames - 1] = accumulator                          
 
                         tada.reset_pos() 
 
-                        keyframes.append(curve)
+                        bone_curves.append(curve)
 
-                    decompressed_anims[anim_crc][bone_hash] = keyframes
+                    decompressed_anims[anim_crc][bone_crc] = bone_curves
 
     return decompressed_anims
 
 
+'''
+Gets the animation names from the supplied
+.anims file. Handy since .zaabin files often
+share a dir with a .anims file.
+'''
 
 def read_anims_file(anims_file_path):
 
     if not os.path.exists(anims_file_path):
-        return None
+        return []
 
-    anims_text = ""
     with open(anims_file_path, 'r') as file:
         anims_text = file.read()
 
@@ -187,26 +184,26 @@ def read_anims_file(anims_file_path):
     if len(splits) > 1:
         return splits[1:-1:2]
 
-    return None
+    return []
 
 
 
+'''
+Unmunge the .zaa(bin) file and apply the resulting animation
+to the currently selected armature object.
 
-
-
-
-
-
+Contains some bloated code for calculating the world transforms of each bone,
+for now this will work ONLY if the model was directly imported from a .msh file.
+'''
 
 def extract_and_apply_munged_anim(input_file_path):
 
     with open(input_file_path,"rb") as input_file:
-        discrete_curves = decompress_curves(input_file)
+        animation_set = decompress_curves(input_file)
 
-    anim_names = None    
+    anim_names = []
     if input_file_path.endswith(".zaabin"):
         anim_names = read_anims_file(input_file_path.replace(".zaabin", ".anims"))
-
 
     arma = bpy.context.view_layer.objects.active
     if arma.type != 'ARMATURE':
@@ -216,6 +213,17 @@ def extract_and_apply_munged_anim(input_file_path):
         arma.animation_data_clear()
     arma.animation_data_create()
 
+
+
+    """
+    When directly imported from .msh files,
+    all skeleton models are saved as emptys, since
+    some are excluded from the actual armature (effectors, roots, eg...).
+
+    bond_bind_poses contains matrices for converting the transform of 
+    bones found in .msh/.zaabin files to ones that'll fit the extracted armature.
+    This will be replaced with the eventual importer release.
+    """
 
     bone_bind_poses = {}
 
@@ -238,16 +246,13 @@ def extract_and_apply_munged_anim(input_file_path):
 
 
 
-    for anim_crc in discrete_curves:
+    for anim_crc in animation_set:
 
-        anim_str = str(hex(anim_crc)) 
-        if anim_names is not None:
-            for anim_name in anim_names:
-                if anim_crc == crc(anim_name):
-                    anim_str = anim_name
-
-        #if crc(anim_name) not in discrete_curves:
-        #    continue
+        found_anim = [anim_name for anim_name in anim_names if crc(anim_name) == anim_crc]
+        if found_anim:
+            anim_str = found_anim[0]
+        else:
+            anim_str = str(hex(anim_crc)) 
 
         #print("\nExtracting anim: " + anim_crc_str)
 
@@ -258,21 +263,21 @@ def extract_and_apply_munged_anim(input_file_path):
         action = bpy.data.actions.new(anim_str)
         action.use_fake_user = True
 
-        anim_curves = discrete_curves[anim_crc]
+        animation = animation_set[anim_crc]
 
         for bone in arma.pose.bones:
             bone_crc = crc(bone.name)
 
             #print("\tGetting curves for bone: " + bone.name)
 
-            if bone_crc not in anim_curves:
+            if bone_crc not in animation:
                 continue;
 
             bind_mat = bone_bind_poses[bone.name]
             loc_data_path = "pose.bones[\"{}\"].location".format(bone.name) 
             rot_data_path = "pose.bones[\"{}\"].rotation_quaternion".format(bone.name) 
 
-            bone_curves = anim_curves[bone_crc]
+            bone_curves = animation[bone_crc]
             num_frames = max(bone_curves[0])
 
             #print("\t\tNum frames: " + str(num_frames))
@@ -284,7 +289,6 @@ def extract_and_apply_munged_anim(input_file_path):
 
                 q = Quaternion()
                 valmap = [1,2,3,0]
-                #valmap = [0,1,2,3]
 
                 has_key = False
 
@@ -326,6 +330,7 @@ def extract_and_apply_munged_anim(input_file_path):
 
                 q = get_quat(frame)
                 if q is not None:
+                    # Very bloated, but works for now
                     q = (bind_mat @ convert_rotation_space(q).to_matrix().to_4x4()).to_quaternion()
                     fcurve_rot_w.keyframe_points.insert(frame,q.w)
                     fcurve_rot_x.keyframe_points.insert(frame,q.x)
@@ -334,6 +339,7 @@ def extract_and_apply_munged_anim(input_file_path):
 
                 t = get_vec(frame)
                 if t is not None:
+                    # ''
                     t = (bind_mat @ Matrix.Translation(convert_vector_space(t))).translation
                     fcurve_loc_x.keyframe_points.insert(frame,t.x)
                     fcurve_loc_y.keyframe_points.insert(frame,t.y)

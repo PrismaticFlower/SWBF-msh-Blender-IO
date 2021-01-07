@@ -1,3 +1,11 @@
+"""
+Basically the same as msh reader but with a couple additional
+methods for making TADA easier to navigate and treats the whole
+file as an initial dummy chunk to avoid the oddities of SMNA and
+to handle both zaa and zaabin. 
+"""
+
+
 
 import io
 import struct
