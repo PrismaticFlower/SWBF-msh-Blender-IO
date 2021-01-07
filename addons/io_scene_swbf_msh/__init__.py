@@ -62,6 +62,7 @@ from .msh_scene_read import read_scene
 from .msh_material_properties import *
 from .msh_skeleton_properties import *
 from .msh_to_blend import *
+from .zaa_to_blend import *
 
 
 class ExportMSH(Operator, ExportHelper):
@@ -152,7 +153,7 @@ class ImportMSH(Operator, ImportHelper):
             )
 
     filter_glob: StringProperty(
-        default="*.msh",
+        default="*.msh;*.zaa;*.zaabin",
         options={'HIDDEN'},
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
@@ -168,13 +169,16 @@ class ImportMSH(Operator, ImportHelper):
         dirname = os.path.dirname(self.filepath)
         for file in self.files:
             filepath = os.path.join(dirname, file.name)
-            with open(filepath, 'rb') as input_file:
-                scene = read_scene(input_file, self.animation_only)
-                
-                if not self.animation_only:
-                    extract_scene(filepath, scene)
-                else:
-                    extract_and_apply_anim(filepath, scene)
+            if filepath.endswith(".zaabin") or filepath.endswith(".zaa"):
+                extract_and_apply_munged_anim(filepath)
+            else:
+                with open(filepath, 'rb') as input_file:              
+                    scene = read_scene(input_file, self.animation_only)
+                    
+                    if not self.animation_only:
+                        extract_scene(filepath, scene)
+                    else:
+                        extract_and_apply_anim(filepath, scene)
 
         return {'FINISHED'}
 
