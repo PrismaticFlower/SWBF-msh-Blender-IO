@@ -78,7 +78,7 @@ def read_scene(input_file, anim_only=False) -> Scene:
         print("Skeleton models: ")
         for model in scene.models:
             for i in range(len(scene.skeleton)):                
-                if crc(model.name) == scene.skeleton[i]:
+                if to_crc(model.name) == scene.skeleton[i]:
                     print("\t" + model.name)
                     if model.model_type == ModelType.SKIN:
                         scene.skeleton.pop(i)

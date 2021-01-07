@@ -248,7 +248,7 @@ def extract_and_apply_munged_anim(input_file_path):
 
     for anim_crc in animation_set:
 
-        found_anim = [anim_name for anim_name in anim_names if crc(anim_name) == anim_crc]
+        found_anim = [anim_name for anim_name in anim_names if to_crc(anim_name) == anim_crc]
         if found_anim:
             anim_str = found_anim[0]
         else:
@@ -266,7 +266,7 @@ def extract_and_apply_munged_anim(input_file_path):
         animation = animation_set[anim_crc]
 
         for bone in arma.pose.bones:
-            bone_crc = crc(bone.name)
+            bone_crc = to_crc(bone.name)
 
             #print("\tGetting curves for bone: " + bone.name)
 

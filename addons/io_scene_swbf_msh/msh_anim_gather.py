@@ -11,7 +11,7 @@ from .msh_model_utilities import *
 from .msh_utilities import *
 from .msh_model_gather import *
 
-from .crc import crc
+from .crc import to_crc
 
 
 def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
@@ -19,7 +19,7 @@ def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
     action = armature.animation_data.action
     anim = Animation();
 
-    root_crc = crc(root_name)
+    root_crc = to_crc(root_name)
 
     if not action:
         framerange = Vector((0.0,1.0))
@@ -33,7 +33,7 @@ def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
     
     anim.bone_frames[root_crc] = ([], [])
     for bone in armature.data.bones:
-        anim.bone_frames[crc(bone.name)] = ([], [])
+        anim.bone_frames[to_crc(bone.name)] = ([], [])
 
     for frame in range(num_frames):
         
@@ -60,8 +60,8 @@ def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
             rframe = RotationFrame(frame, convert_rotation_space(rot))
             tframe = TranslationFrame(frame, convert_vector_space(loc))
 
-            anim.bone_frames[crc(bone.name)][0].append(tframe)
-            anim.bone_frames[crc(bone.name)][1].append(rframe)
+            anim.bone_frames[to_crc(bone.name)][0].append(tframe)
+            anim.bone_frames[to_crc(bone.name)][1].append(rframe)
 
 
     return anim

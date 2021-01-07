@@ -60,12 +60,12 @@ def extract_and_apply_anim(filename, scene):
 
 
         for bone in arma.pose.bones:
-            if crc(bone.name) in scene.animation.bone_frames:
+            if to_crc(bone.name) in scene.animation.bone_frames:
                 #print("Inserting anim data for bone: {}".format(bone.name))
 
                 bind_mat = bone_bind_poses[bone.name]
 
-                translation_frames, rotation_frames = scene.animation.bone_frames[crc(bone.name)]
+                translation_frames, rotation_frames = scene.animation.bone_frames[to_crc(bone.name)]
 
                 loc_data_path = "pose.bones[\"{}\"].location".format(bone.name) 
                 rot_data_path = "pose.bones[\"{}\"].rotation_quaternion".format(bone.name) 
@@ -194,11 +194,11 @@ def extract_refined_skeleton(scene: Scene):
                         for weight in weight_set:
                             model_weighted_to = scene.models[weight.bone]
 
-                            if crc(model_weighted_to.name) not in scene.skeleton:
-                                scene.skeleton.append(crc(model_weighted_to.name))
+                            if to_crc(model_weighted_to.name) not in scene.skeleton:
+                                scene.skeleton.append(to_crc(model_weighted_to.name))
                     
     for model in scene.models:
-        if crc(model.name) in scene.skeleton:
+        if to_crc(model.name) in scene.skeleton:
             skeleton_models.append(model)
 
 
@@ -213,7 +213,7 @@ def extract_refined_skeleton(scene: Scene):
 
             while True:
 
-                if crc(curr_ancestor.name) in scene.skeleton or curr_ancestor.name == scene.models[0].name:
+                if to_crc(curr_ancestor.name) in scene.skeleton or curr_ancestor.name == scene.models[0].name:
                     new_model = Model()
                     new_model.name = bone.name
                     new_model.parent = curr_ancestor.name if curr_ancestor.name != scene.models[0].name else ""
