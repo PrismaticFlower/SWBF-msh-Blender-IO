@@ -44,12 +44,18 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
         with head.read_child() as mina:
 
             for i in range(num_anims):
-                mina.skip_bytes(8)
+
+                transBitFlags = mina.read_u32()
+                mina.skip_bytes(4)
 
                 anim_crc = mina.read_u32() 
                 anim_crcs.append(anim_crc)
 
-                anim_metadata[anim_crc] = {"num_frames" : mina.read_u16(), "num_bones" : mina.read_u16()}
+                anim_metadata[anim_crc] = {
+                    "num_frames" : mina.read_u16(),
+                    "num_bones" : mina.read_u16(),
+                    "transBitFlags" : transBitFlags,
+                }
 
         # Read TADA offsets and quantization parameters for each rot + loc component, for each bone, for each anim
         with head.read_child() as tnja:
@@ -57,10 +63,13 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
             for i, anim_crc in enumerate(anim_crcs):
 
                 bone_params = {}
+                bone_list = []
 
                 for _ in range(anim_metadata[anim_crc]["num_bones"]):
 
-                    bone_crc = tnja.read_u32()              
+                    bone_crc = tnja.read_u32()
+
+                    bone_list.append(bone_crc)              
 
                     bone_params[bone_crc] = {
                         "rot_offsets" : [tnja.read_u32() for _ in range(4)], # Offsets into TADA for rotation 
@@ -69,6 +78,7 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
                     }
 
                 anim_metadata[anim_crc]["bone_params"] = bone_params
+                anim_metadata[anim_crc]["bone_list"] = bone_list
 
         # Decompress/dequantize frame data into discrete per-component curves
         with head.read_child() as tada:
@@ -80,9 +90,11 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
                 num_frames = anim_metadata[anim_crc]["num_frames"]
                 num_bones = anim_metadata[anim_crc]["num_bones"]
 
+                transBitFlags = anim_metadata[anim_crc]["transBitFlags"]
+
                 #print("\n\tAnim hash: {} Num frames: {} Num joints: {}".format(hex(anim_crc), num_frames, num_bones))
 
-                for bone_num, bone_crc in enumerate(anim_metadata[anim_crc]["bone_params"]):
+                for bone_num, bone_crc in enumerate(anim_metadata[anim_crc]["bone_list"]):
 
                     bone_curves = []
 
@@ -96,9 +108,6 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
                     
                     for o, start_offset in enumerate(offsets_list):
                         
-                        # Skip to start of compressed data for component, as specified in TNJA
-                        tada.skip_bytes(start_offset)
-
                         # Init curve dict
                         curve : Dict[int,float] = {}
 
@@ -115,12 +124,22 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
                         # Translations have specific quantization parameters; biases for each component and 
                         # a single multiplier for all three
                         else:
+
+                            if (0x00000001 << bone_num) & transBitFlags == 0:
+                                bone_curves.append(None)
+                                continue
+
+
                             mult = qparams[-1]
                             bias = qparams[o - 4]
 
                             #print("\n\t\t\tBias = {}, multiplier = {}".format(bias, mult))
 
                         #print("\n\t\t\tOffset {}: {} ({}, {} remaining)".format(o,start_offset, tada.get_current_pos(), tada.how_much_left(tada.get_current_pos())))
+
+                        # Skip to start of compressed data for component, as specified in TNJA
+                        tada.skip_bytes(start_offset)
+                        
 
                         j = 0
                         while (j < num_frames):
@@ -232,17 +251,14 @@ def extract_and_apply_munged_anim(input_file_path):
         bone_obj_parent = bone_obj.parent
 
         bind_mat = bone_obj.matrix_local
-        stack_mat = Matrix.Identity(4)
-
 
         while(True):
             if bone_obj_parent is None or bone_obj_parent.name in arma.data.bones:
                 break
             bind_mat = bone_obj_parent.matrix_local @ bind_mat
-            stack_mat = bone_obj_parent.matrix_local @ stack_mat
             bone_obj_parent = bone_obj_parent.parent
 
-        bone_bind_poses[bone.name] = bind_mat.inverted() @ stack_mat
+        bone_bind_poses[bone.name] = bind_mat.inverted()
 
 
 
@@ -253,8 +269,6 @@ def extract_and_apply_munged_anim(input_file_path):
             anim_str = found_anim[0]
         else:
             anim_str = str(hex(anim_crc)) 
-
-        #print("\nExtracting anim: " + anim_crc_str)
 
         if anim_str in bpy.data.actions:
             bpy.data.actions[anim_str].use_fake_user = False
@@ -268,8 +282,6 @@ def extract_and_apply_munged_anim(input_file_path):
         for bone in arma.pose.bones:
             bone_crc = to_crc(bone.name)
 
-            #print("\tGetting curves for bone: " + bone.name)
-
             if bone_crc not in animation:
                 continue;
 
@@ -279,6 +291,8 @@ def extract_and_apply_munged_anim(input_file_path):
 
             bone_curves = animation[bone_crc]
             num_frames = max(bone_curves[0])
+
+            has_translation = bone_curves[4] is not None
 
             #print("\t\tNum frames: " + str(num_frames))
 
@@ -322,14 +336,16 @@ def extract_and_apply_munged_anim(input_file_path):
             fcurve_rot_y = action.fcurves.new(rot_data_path, index=2, action_group=bone.name)
             fcurve_rot_z = action.fcurves.new(rot_data_path, index=3, action_group=bone.name)
 
-            fcurve_loc_x = action.fcurves.new(loc_data_path, index=0, action_group=bone.name)
-            fcurve_loc_y = action.fcurves.new(loc_data_path, index=1, action_group=bone.name)
-            fcurve_loc_z = action.fcurves.new(loc_data_path, index=2, action_group=bone.name)
+            if has_translation:
+                fcurve_loc_x = action.fcurves.new(loc_data_path, index=0, action_group=bone.name)
+                fcurve_loc_y = action.fcurves.new(loc_data_path, index=1, action_group=bone.name)
+                fcurve_loc_z = action.fcurves.new(loc_data_path, index=2, action_group=bone.name)
 
             for frame in range(num_frames):
 
                 q = get_quat(frame)
                 if q is not None:
+
                     # Very bloated, but works for now
                     q = (bind_mat @ convert_rotation_space(q).to_matrix().to_4x4()).to_quaternion()
                     fcurve_rot_w.keyframe_points.insert(frame,q.w)
@@ -337,13 +353,16 @@ def extract_and_apply_munged_anim(input_file_path):
                     fcurve_rot_y.keyframe_points.insert(frame,q.y)
                     fcurve_rot_z.keyframe_points.insert(frame,q.z)
 
-                t = get_vec(frame)
-                if t is not None:
-                    # ''
-                    t = (bind_mat @ Matrix.Translation(convert_vector_space(t))).translation
-                    fcurve_loc_x.keyframe_points.insert(frame,t.x)
-                    fcurve_loc_y.keyframe_points.insert(frame,t.y)
-                    fcurve_loc_z.keyframe_points.insert(frame,t.z)
+                if has_translation:
+                    
+                    t = get_vec(frame)
+                    if t is not None:
+
+                        t = (bind_mat @ Matrix.Translation(convert_vector_space(t))).translation
+
+                        fcurve_loc_x.keyframe_points.insert(frame,t.x)
+                        fcurve_loc_y.keyframe_points.insert(frame,t.y)
+                        fcurve_loc_z.keyframe_points.insert(frame,t.z)
 
         arma.animation_data.action = action
 
