@@ -1,23 +1,22 @@
 """
-Basically the same as msh reader but with a couple additional
-methods for making TADA easier to navigate and treats the whole
-file as an initial dummy chunk to avoid the oddities of SMNA and
-to handle both zaa and zaabin. 
+Reader class for both zaabin, zaa, and msh files.
 """
-
-
 
 import io
 import struct
 import os
 
-class ZAAReader:
-    def __init__(self, file, parent=None, indent=0):
+from mathutils import Vector, Quaternion
+
+
+class Reader:
+    def __init__(self, file, parent=None, indent=0, debug=False):
         self.file = file
         self.size: int = 0
         self.size_pos = None
         self.parent = parent
-        self.indent = "  " * indent #for print debugging
+        self.indent = "  " * indent #for print debugging, should be stored as str so msh_scene_read can access it
+        self.debug = debug
 
 
     def __enter__(self):
@@ -26,7 +25,7 @@ class ZAAReader:
         if self.parent is not None:
             self.header = self.read_bytes(4).decode("utf-8")
         else:
-            self.header = "HEAD"
+            self.header = "FILE"
 
         if self.parent is not None:
             self.size = self.read_u32()
@@ -36,20 +35,22 @@ class ZAAReader:
         padding_length = 4 - (self.size % 4) if self.size % 4 > 0 else 0
         self.end_pos = self.size_pos + padding_length + self.size + 8
 
-        if self.parent is not None:
-            print(self.indent + "Begin " + self.header + ", Size: " + str(self.size) + ", Pos: " + str(self.size_pos))
-        else:
-            print(self.indent + "Begin head, Size: " + str(self.size) + ", Pos: " + str(self.size_pos))
-
+        if self.debug:
+            if self.parent is not None:
+                print(self.indent + "Begin " + self.header + ", Size: " + str(self.size) + ", At pos: " + str(self.size_pos))
+            else:
+                print(self.indent + "Begin file, Size: " + str(self.size) + ", At pos: " + str(self.size_pos))
 
         return self
 
 
     def __exit__(self, exc_type, exc_value, traceback):
         if self.size > self.MAX_SIZE:
-            raise OverflowError(f".msh file overflowed max size. size = {self.size} MAX_SIZE = {self.MAX_SIZE}")
+            raise OverflowError(f"File overflowed max size. size = {self.size} MAX_SIZE = {self.MAX_SIZE}")
 
-        print(self.indent + "End   " + self.header)
+        if self.debug:
+            print(self.indent + "End   " + self.header)
+
         self.file.seek(self.end_pos)
 
 
@@ -103,9 +104,16 @@ class ZAAReader:
         return result[0] if num == 1 else result
 
 
+    def read_quat(self):
+        rot = self.read_f32(4)
+        return Quaternion((rot[3], rot[0], rot[1], rot[2]))
+
+    def read_vec(self):
+        return Vector(self.read_f32(3))
+
 
     def read_child(self):
-        child = ZAAReader(self.file, parent=self, indent=int(len(self.indent) / 2) + 1)
+        child = Reader(self.file, parent=self, indent=int(len(self.indent) / 2) + 1, debug=self.debug)
         return child
 
 

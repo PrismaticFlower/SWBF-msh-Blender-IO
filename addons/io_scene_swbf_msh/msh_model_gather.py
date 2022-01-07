@@ -240,6 +240,8 @@ def get_is_model_hidden(obj: bpy.types.Object) -> bool:
 
     name = obj.name.lower()
 
+    if name.startswith("c_"):
+        return True
     if name.startswith("sv_"):
         return True
     if name.startswith("p_"):

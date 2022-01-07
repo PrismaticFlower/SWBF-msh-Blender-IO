@@ -27,9 +27,6 @@ def save_scene(output_file, scene: Scene):
                 material_index = _write_matl_and_get_material_index(matl, scene)
 
             for index, model in enumerate(scene.models):
-
-                #print("Name: {:.10}, Pos: {:15}, Rot: {:15}, Parent: {}".format(model.name, vec_to_str(model.transform.translation), quat_to_str(model.transform.rotation), model.parent))
-
                 with msh2.create_child("MODL") as modl:
                     _write_modl(modl, model, index, material_index, model_index)
 

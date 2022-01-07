@@ -5,17 +5,34 @@ from typing import Dict
 from .msh_scene import Scene
 from .msh_model import *
 from .msh_material import *
-from .msh_reader import Reader
 from .msh_utilities import *
 
 from .crc import *
 
+from .chunked_file_reader import Reader
+
+
+
+# Current model position
 model_counter = 0
 
-mndx_remap = {}
+# Used to remap MNDX to the MODL's actual position
+mndx_remap : Dict[int, int]  = {}
+
+# How much to print
+debug_level = 0
 
 
-def read_scene(input_file, anim_only=False) -> Scene:
+'''
+Debug levels just indicate how much info should be printed.
+0 = nothing
+1 = just blurbs about valuable info in the chunks
+2 = #1 + full chunk structure
+'''
+def read_scene(input_file, anim_only=False, debug=0) -> Scene:
+
+    global debug_level
+    debug_level = debug
 
     scene = Scene()
     scene.models = []
@@ -27,54 +44,58 @@ def read_scene(input_file, anim_only=False) -> Scene:
     global model_counter
     model_counter = 0
 
-    with Reader(file=input_file, debug=True) as hedr:
+    with Reader(file=input_file, debug=debug_level>0) as head:
 
-        while hedr.could_have_child():
+        head.skip_until("HEDR")
 
-            next_header = hedr.peak_next_header()
+        with head.read_child() as hedr:
 
-            if next_header == "MSH2":
+            while hedr.could_have_child():
 
-                with hedr.read_child() as msh2:
+                next_header = hedr.peak_next_header()
+
+                if next_header == "MSH2":
+
+                    with hedr.read_child() as msh2:
+                        
+                        if not anim_only:
+                            materials_list = []
+
+                            while (msh2.could_have_child()):
+
+                                next_header = msh2.peak_next_header()
+
+                                if next_header == "SINF":
+                                    with msh2.read_child() as sinf:
+                                        pass
+
+                                elif next_header == "MATL":
+                                    with msh2.read_child() as matl:
+                                        materials_list += _read_matl_and_get_materials_list(matl)
+                                        for i,mat in enumerate(materials_list):
+                                            scene.materials[mat.name] = mat
+
+                                elif next_header == "MODL":
+                                    with msh2.read_child() as modl:
+                                        scene.models.append(_read_modl(modl, materials_list))
+
+                                else:
+                                    msh2.skip_bytes(1)
+
+                elif next_header == "SKL2":
+                    with hedr.read_child() as skl2:
+                        num_bones = skl2.read_u32()
+                        scene.skeleton = [skl2.read_u32(5)[0] for i in range(num_bones)]
                     
-                    if not anim_only:
-                        materials_list = []
+                elif next_header == "ANM2":
+                    with hedr.read_child() as anm2:
+                        scene.animation = _read_anm2(anm2)
 
-                        while (msh2.could_have_child()):
+                else:
+                    hedr.skip_bytes(1)
 
-                            next_header = msh2.peak_next_header()
-
-                            if next_header == "SINF":
-                                with msh2.read_child() as sinf:
-                                    pass
-
-                            elif next_header == "MATL":
-                                with msh2.read_child() as matl:
-                                    materials_list += _read_matl_and_get_materials_list(matl)
-                                    for i,mat in enumerate(materials_list):
-                                        scene.materials[mat.name] = mat
-
-                            elif next_header == "MODL":
-                                with msh2.read_child() as modl:
-                                    scene.models.append(_read_modl(modl, materials_list))
-
-                            else:
-                                msh2.skip_bytes(1)
-
-            elif next_header == "SKL2":
-                with hedr.read_child() as skl2:
-                    num_bones = skl2.read_u32()
-                    scene.skeleton = [skl2.read_u32(5)[0] for i in range(num_bones)]
-                
-            elif next_header == "ANM2":
-                with hedr.read_child() as anm2:
-                    scene.animation = _read_anm2(anm2)
-
-            else:
-                hedr.skip_bytes(1)
-
-
-    if scene.skeleton:
+    # Print models in skeleton
+    if scene.skeleton and debug_level > 0:
         print("Skeleton models: ")
         for model in scene.models:
             for i in range(len(scene.skeleton)):                
@@ -84,7 +105,11 @@ def read_scene(input_file, anim_only=False) -> Scene:
                         scene.skeleton.pop(i)
                     break
 
-
+    '''
+    Iterate through every vertex weight in the scene and 
+    change its index to directly reference its bone's index.  
+    It will reference the MNDX of its bone's MODL by default.
+    '''
     for model in scene.models:
         if model.geometry:
             for seg in model.geometry:
@@ -173,7 +198,7 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
                 index = mndx.read_u32()
 
                 global model_counter
-                print(mndx.indent + "MNDX doesn't match counter, expected: {} found: {}".format(model_counter, index))
+                #print(mndx.indent + "MNDX doesn't match counter, expected: {} found: {}".format(model_counter, index))
 
                 global mndx_remap
                 mndx_remap[index] = model_counter
@@ -203,6 +228,7 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
             with modl.read_child() as geom:
 
                 while geom.could_have_child():
+                    #print("Searching for next seg or envl child..")
                     next_header_geom = geom.peak_next_header()
 
                     if next_header_geom == "SEGM":
@@ -239,7 +265,9 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
         else:
             modl.skip_bytes(1)
 
-    print(modl.indent + "Read model " + model.name + " of type: " + str(model.model_type)[10:])
+    global debug_level
+    if debug_level > 0:
+        print(modl.indent + "Read model " + model.name + " of type: " + str(model.model_type)[10:])
 
     return model
 
@@ -253,7 +281,9 @@ def _read_tran(tran: Reader) -> ModelTransform:
     xform.rotation = tran.read_quat()
     xform.translation = tran.read_vec()
 
-    print(tran.indent + "Rot: {} Loc: {}".format(str(xform.rotation), str(xform.translation)))
+    global debug_level
+    if debug_level > 0:
+        print(tran.indent + "Rot: {} Loc: {}".format(str(xform.rotation), str(xform.translation)))
 
     return xform
 
@@ -301,12 +331,16 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                     geometry_seg.texcoords.append(Vector(uv0l.read_f32(2))) 
 
         elif next_header == "NDXL":
+            
             with segm.read_child() as ndxl:
+                pass
+                '''
                 num_polygons = ndxl.read_u32()
 
                 for _ in range(num_polygons):
                     polygon = ndxl.read_u16(ndxl.read_u16())
                     geometry_seg.polygons.append(polygon)
+                '''
 
         elif next_header == "NDXT":
             with segm.read_child() as ndxt:
@@ -374,6 +408,7 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                     geometry_seg.weights.append(weight_set)
 
         else:
+            #print("Skipping...")
             segm.skip_bytes(1)
 
     return geometry_seg
@@ -390,7 +425,8 @@ def _read_anm2(anm2: Reader) -> Animation:
 
         if next_header == "CYCL":
             with anm2.read_child() as cycl:
-                pass
+                # Dont even know what CYCL's data does.  Tried playing 
+                # with the values but didn't change anything in zenasset or ingame...
 
                 '''
                 num_anims = cycl.read_u32()
@@ -399,15 +435,19 @@ def _read_anm2(anm2: Reader) -> Animation:
                     cycl.skip_bytes(64)
                     print("CYCL play style {}".format(cycl.read_u32(4)[1]))
                 '''
+                pass
 
         elif next_header == "KFR3":
             with anm2.read_child() as kfr3:
 
                 num_bones = kfr3.read_u32()
 
+                bone_crcs = []
+
                 for _ in range(num_bones):
 
                     bone_crc = kfr3.read_u32()
+                    bone_crcs.append(bone_crc)
 
                     frames = ([],[])
 
@@ -423,6 +463,18 @@ def _read_anm2(anm2: Reader) -> Animation:
                         frames[1].append(RotationFrame(kfr3.read_u32(), kfr3.read_quat()))
 
                     anim.bone_frames[bone_crc] = frames
+
+
+                for bone_crc in sorted(bone_crcs):
+
+                    global debug_level
+                    if debug_level > 0:
+                        print("\t{}: ".format(hex(bone_crc)))
+
+                    bone_frames = anim.bone_frames[bone_crc]
+
+                    loc_frames = bone_frames[0]
+                    rot_frames = bone_frames[1]
         else:
             anm2.skip_bytes(1)
 

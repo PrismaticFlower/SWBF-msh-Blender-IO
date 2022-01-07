@@ -10,7 +10,7 @@ import os
 import bpy
 import re
 
-from .zaa_reader import *
+from .chunked_file_reader import Reader
 from .crc import *
 
 from .msh_model import *
@@ -20,20 +20,25 @@ from .msh_utilities import *
 from typing import List, Set, Dict, Tuple
 
 
+debug = False
 
-                                               #anims    #bones   #comps #keyframes: index,value
+
+                                      #anims  #bones   #components #keyframes: index,value
 def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]]:
+
+    global debug
 
     decompressed_anims: Dict[int, Dict[int, List[ Dict[int,float]]]] = {}
 
-    with ZAAReader(input_file) as head:
+    with Reader(input_file, debug=debug) as head:
 
         # Dont read SMNA as child, since it has a length field always set to 0...
         head.skip_until("SMNA")
         head.skip_bytes(20)
         num_anims = head.read_u16()
 
-        #print("\nFile contains {} animations\n".format(num_anims))
+        if debug:
+            print("\nFile contains {} animations\n".format(num_anims))
 
         head.skip_bytes(2)
 
@@ -92,7 +97,8 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
 
                 transBitFlags = anim_metadata[anim_crc]["transBitFlags"]
 
-                #print("\n\tAnim hash: {} Num frames: {} Num joints: {}".format(hex(anim_crc), num_frames, num_bones))
+                if debug:
+                    print("\n\tAnim hash: {} Num frames: {} Num joints: {}".format(hex(anim_crc), num_frames, num_bones))
 
                 for bone_num, bone_crc in enumerate(anim_metadata[anim_crc]["bone_list"]):
 
@@ -103,8 +109,9 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
                     offsets_list = params_bone["rot_offsets"] + params_bone["loc_offsets"]
                     qparams = params_bone["qparams"]
 
-                    #print("\n\t\tBone #{} hash: {}".format(bone_num,hex(bone_crc)))
-                    #print("\n\t\tQParams: {}, {}, {}, {}".format(*qparams))
+                    if debug:
+                        print("\n\t\tBone #{} hash: {}".format(bone_num,hex(bone_crc)))
+                        print("\n\t\tQParams: {}, {}, {}, {}".format(*qparams))
                     
                     for o, start_offset in enumerate(offsets_list):
                         
@@ -125,17 +132,14 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
                         # a single multiplier for all three
                         else:
 
-                            if (0x00000001 << bone_num) & transBitFlags == 0:
-                                bone_curves.append(None)
-                                continue
-
-
                             mult = qparams[-1]
                             bias = qparams[o - 4]
 
-                            #print("\n\t\t\tBias = {}, multiplier = {}".format(bias, mult))
+                            if debug:
+                                print("\n\t\t\tBias = {}, multiplier = {}".format(bias, mult))
 
-                        #print("\n\t\t\tOffset {}: {} ({}, {} remaining)".format(o,start_offset, tada.get_current_pos(), tada.how_much_left(tada.get_current_pos())))
+                        if debug:
+                            print("\n\t\t\tOffset {}: {} ({}, {} remaining)".format(o,start_offset, tada.get_current_pos(), tada.how_much_left(tada.get_current_pos())))
 
                         # Skip to start of compressed data for component, as specified in TNJA
                         tada.skip_bytes(start_offset)
@@ -146,7 +150,9 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
                             accumulator = bias + mult * tada.read_i16()
                             curve[j if j < num_frames else num_frames] = accumulator
 
-                            #print("\t\t\t\t{}: {}".format(j, accumulator))
+                            if debug:
+                                print("\t\t\t\t{}: {}".format(j, accumulator))
+
                             j+=1
 
                             while (j < num_frames):
@@ -155,13 +161,15 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
 
                                 # Reset the accumulator to next dequantized i16
                                 if control == -0x7f:
-                                    #print("\t\t\t\tControl: READING NEXT FRAME")
+                                    if debug:
+                                        print("\t\t\t\tControl: READING NEXT FRAME")
                                     break
 
                                 # RLE: hold current accumulator for the next u8 frames 
                                 elif control == -0x80:
                                     num_skips = tada.read_u8()
-                                    #print("\t\t\t\tControl: HOLDING FOR {} FRAMES".format(num_skips))
+                                    if debug:
+                                        print("\t\t\t\tControl: HOLDING FOR {} FRAMES".format(num_skips))
                                     j += num_skips
 
                                 # If not a special value, increment accumulator by the dequantized i8
@@ -169,8 +177,8 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
                                 else:
                                     accumulator += mult * float(control) 
                                     curve[j if j < num_frames else num_frames] = accumulator
-
-                                    #print("\t\t\t\t{}: {}".format(j, accumulator))
+                                    if debug:
+                                        print("\t\t\t\t{}: {}".format(j, accumulator))
                                     j+=1 
 
                         curve[num_frames - 1] = accumulator                          
@@ -217,6 +225,8 @@ for now this will work ONLY if the model was directly imported from a .msh file.
 
 def extract_and_apply_munged_anim(input_file_path):
 
+    global debug
+
     with open(input_file_path,"rb") as input_file:
         animation_set = decompress_curves(input_file)
 
@@ -244,23 +254,37 @@ def extract_and_apply_munged_anim(input_file_path):
     This will be replaced with the eventual importer release.
     """
 
+    animated_bones = set()
+    for anim_crc in animation_set:
+        for bone_crc in animation_set[anim_crc]:
+            animated_bones.add(bone_crc)
+
+
+    bpy.context.view_layer.objects.active = arma
+    bpy.ops.object.mode_set(mode='EDIT')
+
     bone_bind_poses = {}
 
-    for bone in arma.data.bones:
-        bone_obj = bpy.data.objects[bone.name]
-        bone_obj_parent = bone_obj.parent
+    for edit_bone in arma.data.edit_bones:
+        if to_crc(edit_bone.name) not in animated_bones:
+            continue
 
-        bind_mat = bone_obj.matrix_local
+        curr_ancestor = edit_bone.parent
+        while curr_ancestor is not None and to_crc(curr_ancestor.name) not in animated_bones:
+            curr_ancestor = curr_ancestor.parent
 
-        while(True):
-            if bone_obj_parent is None or bone_obj_parent.name in arma.data.bones:
-                break
-            bind_mat = bone_obj_parent.matrix_local @ bind_mat
-            bone_obj_parent = bone_obj_parent.parent
+        if curr_ancestor:
+            bind_mat = curr_ancestor.matrix.inverted() @ edit_bone.matrix 
+        else:
+            bind_mat = arma.matrix_local @ edit_bone.matrix
 
-        bone_bind_poses[bone.name] = bind_mat.inverted()
+        bone_bind_poses[edit_bone.name] = bind_mat.inverted()
+
+    bpy.ops.object.mode_set(mode='OBJECT')
 
 
+    if debug:
+        print("Extracting {} animations from {}:".format(len(animation_set), input_file_path))
 
     for anim_crc in animation_set:
 
@@ -270,16 +294,30 @@ def extract_and_apply_munged_anim(input_file_path):
         else:
             anim_str = str(hex(anim_crc)) 
 
-        if anim_str in bpy.data.actions:
-            bpy.data.actions[anim_str].use_fake_user = False
-            bpy.data.actions.remove(bpy.data.actions[anim_str])
+        if debug:
+            print("\tExtracting anim {}:".format(anim_str))
+
+
+        #if anim_str in bpy.data.actions:
+        #    bpy.data.actions[anim_str].use_fake_user = False
+        #    bpy.data.actions.remove(bpy.data.actions[anim_str])
 
         action = bpy.data.actions.new(anim_str)
         action.use_fake_user = True
 
         animation = animation_set[anim_crc]
 
-        for bone in arma.pose.bones:
+        bone_crcs_list = [bone_crc_ for bone_crc_ in animation]
+
+        for bone_crc in sorted(bone_crcs_list):
+
+            bone_name = next((bone.name for bone in arma.pose.bones if to_crc(bone.name) == bone_crc), None)
+
+            if bone_name is None:
+                continue
+
+            bone = arma.pose.bones[bone_name]
+
             bone_crc = to_crc(bone.name)
 
             if bone_crc not in animation:
@@ -294,7 +332,8 @@ def extract_and_apply_munged_anim(input_file_path):
 
             has_translation = bone_curves[4] is not None
 
-            #print("\t\tNum frames: " + str(num_frames))
+            if debug:
+                print("\t\tBone {} has {} frames: ".format(bone_name, num_frames))
 
             last_values = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
@@ -330,7 +369,6 @@ def extract_and_apply_munged_anim(input_file_path):
 
                 return v if has_key else None
 
-
             fcurve_rot_w = action.fcurves.new(rot_data_path, index=0, action_group=bone.name)
             fcurve_rot_x = action.fcurves.new(rot_data_path, index=1, action_group=bone.name)
             fcurve_rot_y = action.fcurves.new(rot_data_path, index=2, action_group=bone.name)
@@ -346,6 +384,9 @@ def extract_and_apply_munged_anim(input_file_path):
                 q = get_quat(frame)
                 if q is not None:
 
+                    if debug:
+                        print("\t\t\tRot key: ({}, {})".format(frame, quat_to_str(q)))
+
                     # Very bloated, but works for now
                     q = (bind_mat @ convert_rotation_space(q).to_matrix().to_4x4()).to_quaternion()
                     fcurve_rot_w.keyframe_points.insert(frame,q.w)
@@ -357,6 +398,9 @@ def extract_and_apply_munged_anim(input_file_path):
                     
                     t = get_vec(frame)
                     if t is not None:
+
+                        if debug:
+                            print("\t\t\tPos key: ({}, {})".format(frame, vec_to_str(t)))
 
                         t = (bind_mat @ Matrix.Translation(convert_vector_space(t))).translation
 
