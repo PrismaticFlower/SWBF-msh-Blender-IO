@@ -110,13 +110,27 @@ def read_scene(input_file, anim_only=False, debug=0) -> Scene:
     change its index to directly reference its bone's index.  
     It will reference the MNDX of its bone's MODL by default.
     '''
+    
     for model in scene.models:
         if model.geometry:
             for seg in model.geometry:
                 if seg.weights:
                     for weight_set in seg.weights:
                         for vweight in weight_set:
-                            vweight.bone = mndx_remap[vweight.bone]
+
+                            if vweight.bone in mndx_remap:
+                                vweight.bone = mndx_remap[vweight.bone]
+                            else:
+                                vweight.bone = 0
+
+    # So in the new republic boba example, the weights aimed for bone_head instead map to sv_jettrooper...
+
+
+    #for key, val in mndx_remap.items():
+        #if scene.models[val].name == "bone_head" or scene.models[val].name == "sv_jettrooper":
+        #print("Key: {} is mapped to val: {}".format(key, val))
+        #print("Key: {}, val {} is model: {}".format(key, val, scene.models[val].name))
+
                     
     return scene
 
@@ -155,8 +169,8 @@ def _read_matd(matd: Reader) -> Material:
     
         elif next_header == "ATRB":
             with matd.read_child() as atrb:
-                mat.flags = atrb.read_u8()
-                mat.rendertype = atrb.read_u8()
+                mat.flags = MaterialFlags(atrb.read_u8())
+                mat.rendertype = Rendertype(atrb.read_u8())
                 mat.data = atrb.read_u8(2)
 
         elif next_header == "TX0D":
@@ -197,8 +211,10 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
             with modl.read_child() as mndx:
                 index = mndx.read_u32()
 
+
                 global model_counter
                 #print(mndx.indent + "MNDX doesn't match counter, expected: {} found: {}".format(model_counter, index))
+                #print("Model counter: {} MNDX: {}".format(model_counter, index))
 
                 global mndx_remap
                 mndx_remap[index] = model_counter
@@ -228,7 +244,6 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
             with modl.read_child() as geom:
 
                 while geom.could_have_child():
-                    #print("Searching for next seg or envl child..")
                     next_header_geom = geom.peak_next_header()
 
                     if next_header_geom == "SEGM":
@@ -242,16 +257,12 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
                     
                     else:
                         geom.skip_bytes(1)
-                        #with geom.read_child() as null:
-                        #pass
 
             for seg in model.geometry:
                 if seg.weights and envelope:
                     for weight_set in seg.weights:
-                        for i in range(len(weight_set)):
-                            vertex_weight = weight_set[i]
-                            index = vertex_weight.bone
-                            weight_set[i] = VertexWeight(vertex_weight.weight, envelope[vertex_weight.bone])
+                        for vertex_weight in weight_set:
+                            vertex_weight.bone = envelope[vertex_weight.bone]
 
         elif next_header == "SWCI":
             prim = CollisionPrimitive()
@@ -348,7 +359,7 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
 
                 for _ in range(num_tris):
                     geometry_seg.triangles.append(ndxt.read_u16(3))
-
+        # 
         elif next_header == "STRP":
             strips : List[List[int]] = []
 
@@ -408,7 +419,6 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                     geometry_seg.weights.append(weight_set)
 
         else:
-            #print("Skipping...")
             segm.skip_bytes(1)
 
     return geometry_seg
@@ -466,10 +476,6 @@ def _read_anm2(anm2: Reader) -> Animation:
 
 
                 for bone_crc in sorted(bone_crcs):
-
-                    global debug_level
-                    if debug_level > 0:
-                        print("\t{}: ".format(hex(bone_crc)))
 
                     bone_frames = anim.bone_frames[bone_crc]
 

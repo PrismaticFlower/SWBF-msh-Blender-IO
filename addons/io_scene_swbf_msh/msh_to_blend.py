@@ -8,6 +8,7 @@ from enum import Enum
 from typing import List, Set, Dict, Tuple
 from itertools import zip_longest
 from .msh_scene import Scene
+from .msh_material_to_blend import *
 from .msh_model import *
 from .msh_model_utilities import *
 from .msh_utilities import *
@@ -118,10 +119,6 @@ def required_skeleton_to_armature(required_skeleton : List[Model], model_map : D
         if to_crc(model.name) in msh_scene.skeleton:
             entry = preserved.add()
             entry.name = model.name
-            #loc,rot,_ = model_map[model.name].matrix_world.decompose()
-            #entry.loc = loc
-            #entry.rot = rot
-            #entry.parent = model.parent
 
     
     bones_set = set([model.name for model in required_skeleton])
@@ -186,17 +183,29 @@ def extract_required_skeleton(scene: Scene) -> List[Model]:
     # Will map Model names to Models in scene, for convenience
     model_dict : Dict[str, Model] = {}
 
-    # Will contain hashes of all models that definitely need to be in the skeleton/armature.
-    # We initialize it with the contents of SKL2 i.e. the nodes that are animated.
-    # For now this includes the scene root, but that'll be excluded later.
+    '''
+    Will contain hashes of all models that definitely need to be in the skeleton/armature.
+    We initialize it with the contents of SKL2 i.e. the nodes that are animated.
+    For now this includes the scene root, but that'll be excluded later.
+    '''
     skeleton_hashes = set(scene.skeleton)
 
-    # We also need to add all nodes that are weighted to.  These are not necessarily in
-    # SKL2, as SKL2 seems to only reference nodes that are keyframed.
+    '''
+    We also need to add all nodes that are weighted to.  These are not necessarily in
+    SKL2, as SKL2 seems to only reference nodes that are keyframed.
+    However, sometimes SKL2 is not included when it should be, but it can be mostly recovered
+    by checking which models are BONEs.
+    '''
     for model in scene.models:
         model_dict[model.name] = model
 
-        if model.geometry:
+        #if to_crc(model.name) in scene.skeleton:
+        print("Skel model {} of type {} has parent {}".format(model.name, model.model_type, model.parent))
+
+        if model.model_type == ModelType.BONE:
+            skeleton_hashes.add(to_crc(model.name))    
+
+        elif model.geometry:
             for seg in model.geometry:
                 if seg.weights:
                     for weight_set in seg.weights:
@@ -346,6 +355,7 @@ def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) 
 
                         if index not in vertex_groups_indicies:
                             model_name = scene.models[index].name
+                            #print("Adding new vertex group with index {}  and model name {}".format(index, model_name))
                             vertex_groups_indicies[index] = new_obj.vertex_groups.new(name=model_name)
 
                         vertex_groups_indicies[index].add([offset + i], weight.weight, 'ADD')
@@ -394,29 +404,14 @@ def extract_materials(folder_path: str, scene: Scene) -> Dict[str, bpy.types.Mat
         new_mat.use_nodes = True
         bsdf = new_mat.node_tree.nodes["Principled BSDF"]
 
-        tex_path_def = os.path.join(folder_path, material.texture0)
-        tex_path_alt = os.path.join(folder_path, "PC", material.texture0)
+        diffuse_texture_path = find_texture_path(folder_path, material.texture0)
 
-        tex_path = tex_path_def if os.path.exists(tex_path_def) else tex_path_alt
-
-        if os.path.exists(tex_path):
+        if diffuse_texture_path:
             texImage = new_mat.node_tree.nodes.new('ShaderNodeTexImage')
-            texImage.image = bpy.data.images.load(tex_path)
-            new_mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
+            texImage.image = bpy.data.images.load(diffuse_texture_path)
+            new_mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])  
 
-        # Fill MaterialProperties datablock
-        '''
-        material_properties = new_mat.swbf_msh
-        material_properties.specular_color = material.specular_color.copy()
-        material_properties.diffuse_map = material.texture0
-
-        result.rendertype = _read_material_props_rendertype(props)
-        result.flags = _read_material_props_flags(props)
-        result.data = _read_material_props_data(props)
-        result.texture1 = _read_normal_map_or_distortion_map_texture(props)
-        result.texture2 = _read_detail_texture(props)
-        result.texture3 = _read_envmap_texture(props)
-        '''
+        fill_material_props(material, new_mat.swbf_msh)      
 
         extracted_materials[material_name] = new_mat
 
@@ -433,6 +428,7 @@ def extract_scene(filepath: str, scene: Scene):
 
     # model_map maps Model names to Blender objects.
     model_map = extract_models(scene, material_map)
+
 
     # skel contains all models needed in an armature
     skel = extract_required_skeleton(scene)
@@ -463,24 +459,16 @@ def extract_scene(filepath: str, scene: Scene):
 
                 has_skin = True
 
-                curr_obj.select_set(True)
-                armature.select_set(True)
-                bpy.context.view_layer.objects.active = armature
-
-                bpy.ops.object.parent_clear(type='CLEAR')
-                bpy.ops.object.parent_set(type='ARMATURE')
-
-                curr_obj.select_set(False)
-                armature.select_set(False)
-                bpy.context.view_layer.objects.active = None
+                curr_obj.parent = armature
+                curr_obj.parent_type = 'ARMATURE'
 
             # Parent the object to a bone if necessary
             else:
                 if curr_model.parent in armature.data.bones and curr_model.name not in armature.data.bones:
-                    # Some of this is redundant, but necessary...
+                    # Not sure what the different mats do, but saving the worldmat and 
+                    # applying it after clearing the other mats yields correct results...
                     worldmat = curr_obj.matrix_world
-                    # ''
-                    curr_obj.parent = None
+
                     curr_obj.parent = armature
                     curr_obj.parent_type = 'BONE'
                     curr_obj.parent_bone = curr_model.parent
@@ -506,19 +494,9 @@ def extract_scene(filepath: str, scene: Scene):
                 if model.name == skeleton_parent_name:
                     armature_reparent_obj = None if not skeleton_parent_name else model_map[skeleton_parent_name]
 
-
         # Now we reparent the armature to the node (armature_reparent_obj) we just found
         if armature_reparent_obj is not None and armature.name != armature_reparent_obj.name:
-
-            armature.select_set(True)
-            armature_reparent_obj.select_set(True)
-
-            bpy.context.view_layer.objects.active = armature_reparent_obj
-            bpy.ops.object.parent_set(type='OBJECT')
-
-            armature.select_set(False)
-            armature_reparent_obj.select_set(False)
-            bpy.context.view_layer.objects.active = None
+            armature.parent = armature_reparent_obj
 
 
         # If an bone exists in the armature, delete its 

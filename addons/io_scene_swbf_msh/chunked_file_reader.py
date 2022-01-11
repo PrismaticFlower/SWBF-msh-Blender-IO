@@ -25,21 +25,18 @@ class Reader:
         if self.parent is not None:
             self.header = self.read_bytes(4).decode("utf-8")
         else:
-            self.header = "FILE"
+            self.header = "File"
 
         if self.parent is not None:
             self.size = self.read_u32()
         else:
             self.size = os.path.getsize(self.file.name) - 8
-
-        padding_length = 4 - (self.size % 4) if self.size % 4 > 0 else 0
-        self.end_pos = self.size_pos + padding_length + self.size + 8
+        
+        # No padding to multiples of 4.  Files exported from XSI via zetools do not align by 4!
+        self.end_pos = self.size_pos + self.size + 8
 
         if self.debug:
-            if self.parent is not None:
-                print(self.indent + "Begin " + self.header + ", Size: " + str(self.size) + ", At pos: " + str(self.size_pos))
-            else:
-                print(self.indent + "Begin file, Size: " + str(self.size) + ", At pos: " + str(self.size_pos))
+            print("{}Begin {} of Size {} at pos {}:".format(self.indent, self.header, self.size, self.size_pos))
 
         return self
 
@@ -49,7 +46,7 @@ class Reader:
             raise OverflowError(f"File overflowed max size. size = {self.size} MAX_SIZE = {self.MAX_SIZE}")
 
         if self.debug:
-            print(self.indent + "End   " + self.header)
+            print("{}End {} at pos: {}".format(self.indent, self.header, self.end_pos))
 
         self.file.seek(self.end_pos)
 

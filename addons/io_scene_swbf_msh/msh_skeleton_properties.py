@@ -9,11 +9,6 @@ from .msh_model import *
 
 class SkeletonProperties(PropertyGroup):
         name: StringProperty(name="Name", default="Bone Name")
-        #parent: StringProperty(name="Parent", default="Bone Parent")
-        #loc: FloatVectorProperty(name="Local Position", default=(0.0, 0.0, 0.0), subtype="XYZ", size=3)
-        #rot: FloatVectorProperty(name="Local Rotation", default=(0.0, 0.0, 0.0, 0.0), subtype="QUATERNION", size=4)
-
-
 
 
 
@@ -29,7 +24,7 @@ class SkeletonPropertiesPanel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object.type == 'ARMATURE'
+        return context.object.type == 'ARMATURE' and context.object.data.swbf_msh_skel and len(context.object.data.swbf_msh_skel) > 0
 
 
     def draw(self, context):
@@ -45,13 +40,4 @@ class SkeletonPropertiesPanel(bpy.types.Panel):
         for prop in skel_props:
             layout.prop(prop, "name")
 
-            '''
-            layout.prop(skel_props, "name")
-            layout.prop(skel_props, "parent")
-            layout.prop(skel_props, "loc")
-            layout.prop(skel_props, "rot")
-            '''
-
-
-        #self.layout.label(text=context.object.swbf_msh_skel.yolo[1])
         

@@ -45,6 +45,8 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
         anim_crcs = []
         anim_metadata = {}
 
+        head.skip_until("MINA")
+
         # Read metadata (crc, num frames, num bones) for each anim
         with head.read_child() as mina:
 
@@ -61,6 +63,9 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
                     "num_bones" : mina.read_u16(),
                     "transBitFlags" : transBitFlags,
                 }
+
+
+        head.skip_until("TNJA")
 
         # Read TADA offsets and quantization parameters for each rot + loc component, for each bone, for each anim
         with head.read_child() as tnja:
@@ -84,6 +89,8 @@ def decompress_curves(input_file) -> Dict[int, Dict[int, List[ Dict[int,float]]]
 
                 anim_metadata[anim_crc]["bone_params"] = bone_params
                 anim_metadata[anim_crc]["bone_list"] = bone_list
+
+        head.skip_until("TADA")
 
         # Decompress/dequantize frame data into discrete per-component curves
         with head.read_child() as tada:
