@@ -9,7 +9,7 @@ from mathutils import Vector, Matrix
 
 
 def inject_dummy_data(model : Model):
-    """  Adds a triangle and material to the scene root when exporting skeletons to satisfy ZenAsset.  """
+    """  Adds a triangle and material to the model (scene root).  Needed to export zenasst-compatible skeletons. """
     model.hidden = True
 
     dummy_seg = GeometrySegment()

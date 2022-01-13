@@ -30,14 +30,20 @@ def save_scene(output_file, scene: Scene):
                 with msh2.create_child("MODL") as modl:
                     _write_modl(modl, model, index, material_index, model_index)
 
+        # Contrary to earlier belief, anim/skel info does not need to be exported for animated models
+        # BUT, unless a model is a BONE, it wont animate!
+        # This is not necessary when exporting animations.  When exporting animations, the following
+        # chunks are necessary and the animated models can be marked as NULLs 
         if scene.animation is not None:
+            # Seems as though SKL2 is wholly unneccessary from SWBF's perspective (for models and anims),
+            # but it is there in all stock models/anims
             with hedr.create_child("SKL2") as skl2:
                 _write_skl2(skl2, scene.animation)
 
             with hedr.create_child("BLN2") as bln2:
                 _write_bln2(bln2, scene.animation)
 
-            with hedr.create_child("ANM2") as anm2: #simple for now              
+            with hedr.create_child("ANM2") as anm2:              
                 _write_anm2(anm2, scene.animation)
 
         with hedr.create_child("CL1L"):

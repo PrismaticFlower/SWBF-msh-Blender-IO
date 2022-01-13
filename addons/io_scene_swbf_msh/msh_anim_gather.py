@@ -14,9 +14,29 @@ from .msh_model_gather import *
 from .crc import to_crc
 
 
+
+
 def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
 
     action = armature.animation_data.action
+
+    # Set of bones to include in SKL2/animation stuff
+    keyable_bones : Set[str] = set()
+    
+    msh_skel = armature.data.swbf_msh_skel
+
+    has_preserved_skel = len(msh_skel) > 0
+
+    if has_preserved_skel:
+        for bone in msh_skel:
+            #print("Adding {} from preserved skel to exported skeleton".format(bone.name))
+            keyable_bones.add(bone.name)
+    elif action:
+        for group in action.groups:
+            #print("Adding {} from action groups to exported skeleton".format(group.name))
+            keyable_bones.add(group.name)
+
+
     anim = Animation();
 
     root_crc = to_crc(root_name)
@@ -33,7 +53,8 @@ def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
     
     anim.bone_frames[root_crc] = ([], [])
     for bone in armature.data.bones:
-        anim.bone_frames[to_crc(bone.name)] = ([], [])
+        if bone.name in keyable_bones:
+            anim.bone_frames[to_crc(bone.name)] = ([], [])
 
     for frame in range(num_frames):
         
@@ -49,6 +70,9 @@ def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
 
 
         for bone in armature.pose.bones:
+
+            if bone.name not in keyable_bones:
+                continue
 
             transform = bone.matrix
 

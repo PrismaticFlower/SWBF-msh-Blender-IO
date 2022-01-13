@@ -311,7 +311,8 @@ def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveSh
     if "box" in name or "cube" in name or "cuboid" in name:
         return CollisionPrimitiveShape.BOX
 
-    raise RuntimeError(f"Object '{obj.name}' has no primitive type specified in it's name!")
+    return CollisionPrimitiveShape.BOX
+    #raise RuntimeError(f"Object '{obj.name}' has no primitive type specified in it's name!")
 
 def check_for_bad_lod_suffix(obj: bpy.types.Object):
     """ Checks if the object has an LOD suffix that is known to be ignored by  """
@@ -371,10 +372,11 @@ def select_objects(export_target: str) -> List[bpy.types.Object]:
 
 
 
-def expand_armature(obj: bpy.types.Object) -> List[Model]:
+def expand_armature(armature: bpy.types.Object) -> List[Model]:
+    
     bones: List[Model] = []
 
-    for bone in obj.data.bones:
+    for bone in armature.data.bones:
         model = Model()
 
         transform = bone.matrix_local
@@ -382,11 +384,16 @@ def expand_armature(obj: bpy.types.Object) -> List[Model]:
         if bone.parent:
             transform = bone.parent.matrix_local.inverted() @ transform
             model.parent = bone.parent.name
+        # If the bone has no parent_bone:
+        #   set model parent to SKIN object if there is one
+        #   set model parent to armature parent if there is one
         else:
-            model.parent = obj.parent.name
-            for child_obj in obj.children:
-                if child_obj.vertex_groups and not get_is_model_hidden(obj) and not obj.parent_bone:
+            for child_obj in armature.children:
+                if child_obj.vertex_groups and not get_is_model_hidden(child_obj) and not child_obj.parent_bone:
                     model.parent = child_obj.name
+                    break
+            if not model.parent and armature.parent:
+                model.parent = armature.parent.name
 
 
         local_translation, local_rotation, _ = transform.decompose()

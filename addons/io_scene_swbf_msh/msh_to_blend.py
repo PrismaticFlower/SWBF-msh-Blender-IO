@@ -113,14 +113,7 @@ def required_skeleton_to_armature(required_skeleton : List[Model], model_map : D
     armature_obj = bpy.data.objects.new("skeleton", armature)
     bpy.context.view_layer.active_layer_collection.collection.objects.link(armature_obj)
 
-
-    preserved = armature_obj.data.swbf_msh_skel
-    for model in required_skeleton:
-        if to_crc(model.name) in msh_scene.skeleton:
-            entry = preserved.add()
-            entry.name = model.name
-
-    
+ 
     bones_set = set([model.name for model in required_skeleton])
 
     armature_obj.select_set(True)
@@ -200,7 +193,7 @@ def extract_required_skeleton(scene: Scene) -> List[Model]:
         model_dict[model.name] = model
 
         #if to_crc(model.name) in scene.skeleton:
-        print("Skel model {} of type {} has parent {}".format(model.name, model.model_type, model.parent))
+        #    print("Skel model {} of type {} has parent {}".format(model.name, model.model_type, model.parent))
 
         if model.model_type == ModelType.BONE:
             skeleton_hashes.add(to_crc(model.name))    
@@ -435,6 +428,13 @@ def extract_scene(filepath: str, scene: Scene):
 
     # Create the armature if skel is non-empty
     armature = None if not skel else required_skeleton_to_armature(skel, model_map, scene)
+
+    if armature is not None:
+        preserved = armature.data.swbf_msh_skel
+        for model in scene.models:
+            if to_crc(model.name) in scene.skeleton:
+                entry = preserved.add()
+                entry.name = model.name
 
 
     '''
