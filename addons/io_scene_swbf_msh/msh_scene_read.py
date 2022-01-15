@@ -169,7 +169,7 @@ def _read_matd(matd: Reader) -> Material:
     
         elif next_header == "ATRB":
             with matd.read_child() as atrb:
-                mat.flags = MaterialFlags(atrb.read_u8())
+                mat.flags = MaterialFlags(atrb.read_u8())                
                 mat.rendertype = Rendertype(atrb.read_u8())
                 mat.data = atrb.read_u8(2)
 
@@ -211,11 +211,7 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
             with modl.read_child() as mndx:
                 index = mndx.read_u32()
 
-
                 global model_counter
-                #print(mndx.indent + "MNDX doesn't match counter, expected: {} found: {}".format(model_counter, index))
-                #print("Model counter: {} MNDX: {}".format(model_counter, index))
-
                 global mndx_remap
                 mndx_remap[index] = model_counter
 
@@ -254,6 +250,10 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
                         with geom.read_child() as envl:
                             num_indicies = envl.read_u32()
                             envelope += [envl.read_u32() for _ in range(num_indicies)]
+                    
+                    elif next_header_geom == "CLTH":
+                        with geom.read_child() as clth:
+                            pass
                     
                     else:
                         geom.skip_bytes(1)
@@ -359,7 +359,8 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
 
                 for _ in range(num_tris):
                     geometry_seg.triangles.append(ndxt.read_u16(3))
-        # 
+        
+        # There could be major issues with this, so far it hasn't failed but its inelegance irks me
         elif next_header == "STRP":
             strips : List[List[int]] = []
 
@@ -474,13 +475,6 @@ def _read_anm2(anm2: Reader) -> Animation:
 
                     anim.bone_frames[bone_crc] = frames
 
-
-                for bone_crc in sorted(bone_crcs):
-
-                    bone_frames = anim.bone_frames[bone_crc]
-
-                    loc_frames = bone_frames[0]
-                    rot_frames = bone_frames[1]
         else:
             anm2.skip_bytes(1)
 

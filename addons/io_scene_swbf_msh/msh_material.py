@@ -18,6 +18,29 @@ class Rendertype(Enum):
     NORMALMAPPED_ENVMAPPED = 26
     NORMALMAPPED = 27
     NORMALMAPPED_TILED_ENVMAP = 29
+    OTHER_1 = 1
+    OTHER_2 = 2
+    OTHER_4 = 4
+    OTHER_5 = 5
+    OTHER_8 = 8
+    OTHER_9 = 9
+    OTHER_10 = 10
+    OTHER_11 = 11
+    OTHER_12 = 12
+    OTHER_13 = 13
+    OTHER_14 = 14
+    OTHER_15 = 15
+    OTHER_16 = 16
+    OTHER_17 = 17
+    OTHER_18 = 18
+    OTHER_19 = 19
+    OTHER_20 = 20
+    OTHER_21 = 21
+    OTHER_23 = 23
+    OTHER_28 = 28
+    OTHER_30 = 30
+    OTHER_31 = 31
+
 
 class MaterialFlags(Flag):
     NONE = 0

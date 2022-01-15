@@ -5,6 +5,8 @@ import bpy
 from typing import Dict
 from .msh_material import *
 
+from .msh_material_utilities import _RENDERTYPES_MAPPING
+
 def gather_materials() -> Dict[str, Material]:
     """ Gathers the Blender materials and returns them as
         a dictionary of strings and Material objects. """
@@ -31,27 +33,27 @@ def read_material(blender_material: bpy.types.Material) -> Material:
     result.rendertype = _read_material_props_rendertype(props)
     result.flags = _read_material_props_flags(props)
     result.data = _read_material_props_data(props)
-    result.texture0 = props.diffuse_map
-    result.texture1 = _read_normal_map_or_distortion_map_texture(props)
-    result.texture2 = _read_detail_texture(props)
-    result.texture3 = _read_envmap_texture(props)
+
+    if "UNSUPPORTED" not in props.rendertype:
+        result.texture0 = props.diffuse_map
+        result.texture1 = _read_normal_map_or_distortion_map_texture(props)
+        result.texture2 = _read_detail_texture(props)
+        result.texture3 = _read_envmap_texture(props)
+    
+    else:
+        result.texture0 = props.texture_0
+        result.texture1 = props.texture_1
+        result.texture2 = props.texture_2
+        result.texture3 = props.texture_3
 
     return result
 
-_RENDERTYPES_MAPPING = {
-    "NORMAL_BF2": Rendertype.NORMAL,
-    "SCROLLING_BF2": Rendertype.SCROLLING,
-    "ENVMAPPED_BF2": Rendertype.ENVMAPPED,
-    "ANIMATED_BF2": Rendertype.ANIMATED,
-    "REFRACTION_BF2": Rendertype.REFRACTION,
-    "BLINK_BF2": Rendertype.BLINK,
-    "NORMALMAPPED_TILED_BF2": Rendertype.NORMALMAPPED_TILED,
-    "NORMALMAPPED_ENVMAPPED_BF2": Rendertype.NORMALMAPPED_ENVMAPPED,
-    "NORMALMAPPED_BF2": Rendertype.NORMALMAPPED,
-    "NORMALMAPPED_TILED_ENVMAPPED_BF2": Rendertype.NORMALMAPPED_TILED_ENVMAP}
 
 def _read_material_props_rendertype(props) -> Rendertype:
-    return _RENDERTYPES_MAPPING[props.rendertype]
+    if "UNSUPPORTED" in props.rendertype:
+        return Rendertype(props.rendertype_value)
+    else:
+        return _RENDERTYPES_MAPPING[props.rendertype]
 
 def _read_material_props_flags(props) -> MaterialFlags:
     if "REFRACTION" in props.rendertype:
@@ -79,6 +81,8 @@ def _read_material_props_flags(props) -> MaterialFlags:
     return flags
 
 def _read_material_props_data(props) -> Tuple[int, int]:
+    if "UNSUPPORTED" in props.rendertype:
+        return (props.data_value_0, props.data_value_1)
     if "SCROLLING" in props.rendertype:
         return (props.scroll_speed_u, props.scroll_speed_v)
     if "BLINK" in props.rendertype:

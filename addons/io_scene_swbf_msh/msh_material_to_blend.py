@@ -6,6 +6,10 @@ from .msh_material import *
 from .msh_material_gather import *
 from .msh_material_properties import *
 
+from .msh_material_utilities import _REVERSE_RENDERTYPES_MAPPING
+
+from math import sqrt
+
 import os
 
 
@@ -36,35 +40,22 @@ def fill_material_props(material : Material, material_properties):
     if material_properties is None or material is None:
         return
 
+    material_properties.rendertype_value = material.rendertype.value
+
     material_properties.specular_color = (material.specular_color[0], material.specular_color[1], material.specular_color[2])
-    material_properties.diffuse_map = material.texture0
     
     _fill_material_props_rendertype(material, material_properties)
     _fill_material_props_flags(material, material_properties)
     _fill_material_props_data(material, material_properties)
-    
-    _fill_normal_map_or_distortion_map_texture(material, material_properties)
-    _fill_detail_texture(material, material_properties)
-    _fill_envmap_texture(material, material_properties)
+    _fill_material_props_texture_maps(material, material_properties)
 
 
 
 def _fill_material_props_rendertype(material, material_properties):
-
-    _REVERSE_RENDERTYPES_MAPPING = {
-        Rendertype.NORMAL : "NORMAL_BF2",
-        Rendertype.SCROLLING : "SCROLLING_BF2",
-        Rendertype.ENVMAPPED : "ENVMAPPED_BF2",
-        Rendertype.ANIMATED : "ANIMATED_BF2",
-        Rendertype.REFRACTION : "REFRACTION_BF2",
-        Rendertype.BLINK : "BLINK_BF2",
-        Rendertype.NORMALMAPPED_TILED : "NORMALMAPPED_TILED_BF2",
-        Rendertype.NORMALMAPPED_ENVMAPPED : "NORMALMAPPED_ENVMAPPED_BF2",
-        Rendertype.NORMALMAPPED : "NORMALMAPPED_BF2",
-        Rendertype.NORMALMAPPED_TILED_ENVMAP : "NORMALMAPPED_TILED_ENVMAPPED_BF2"}
-
-    material_properties.rendertype = _REVERSE_RENDERTYPES_MAPPING[material.rendertype]
-
+    if material.rendertype in _REVERSE_RENDERTYPES_MAPPING:
+        material_properties.rendertype = _REVERSE_RENDERTYPES_MAPPING[material.rendertype]
+    else:
+        material_properties.rendertype = "UNSUPPORTED"
 
 
 def _fill_material_props_flags(material, material_properties):
@@ -85,49 +76,41 @@ def _fill_material_props_flags(material, material_properties):
 
 
 def _fill_material_props_data(material, material_properties):
-    if material.rendertype == Rendertype.SCROLLING:
-        material_properties.scroll_speed_u = material.data[0]
-        material_properties.scroll_speed_v = material.data[1]
-    
-    elif material.rendertype == Rendertype.BLINK:
-        material_properties.blink_min_brightness = material.data[0]
-        material_properties.blink_speed = material.data[1]
-    
-    elif material.rendertype == Rendertype.NORMALMAPPED_TILED_ENVMAP or material.rendertype == Rendertype.NORMALMAPPED_TILED:
-        material_properties.normal_map_tiling_u = material.data[0]
-        material_properties.normal_map_tiling_v = material.data[1]
-    
-    elif material.rendertype == Rendertype.REFRACTION:
-        pass
-    
-    elif material.rendertype == Rendertype.ANIMATED:
 
-        anim_length_index = int(sqrt(length)) - 1
-        if animation_length_index < 0:
-            animation_length_index = 0
-        elif animation_length_index > len(UI_MATERIAL_ANIMATION_LENGTHS):
-            animation_length_index = len(UI_MATERIAL_ANIMATION_LENGTHS) - 1
+    material_properties.data_value_0 = material.data[0]
+    material_properties.data_value_1 = material.data[1]
 
-        material_properties.animation_length = UI_MATERIAL_ANIMATION_LENGTHS[animation_length_index]
-        material_properties.animation_speed = material.data[1]
-    
-    else:
-        material_properties.detail_map_tiling_u = material.data[0]
-        material_properties.detail_map_tiling_v = material.data[1]
+    material_properties.scroll_speed_u = material.data[0]
+    material_properties.scroll_speed_v = material.data[1]
+
+    material_properties.blink_min_brightness = material.data[0]
+    material_properties.blink_speed = material.data[1]
+
+    material_properties.normal_map_tiling_u = material.data[0]
+    material_properties.normal_map_tiling_v = material.data[1]
+
+    anim_length_index = int(sqrt(material.data[0]))
+    if anim_length_index < 0:
+        anim_length_index = 0
+    elif anim_length_index > len(UI_MATERIAL_ANIMATION_LENGTHS):
+        anim_length_index = len(UI_MATERIAL_ANIMATION_LENGTHS) - 1
+
+    material_properties.animation_length = UI_MATERIAL_ANIMATION_LENGTHS[anim_length_index][0]
+    material_properties.animation_speed = material.data[1]
+
+    material_properties.detail_map_tiling_u = material.data[0]
+    material_properties.detail_map_tiling_v = material.data[1]
 
 
-def _fill_normal_map_or_distortion_map_texture(material, material_properties):
-    if material.rendertype == Rendertype.REFRACTION:
+def _fill_material_props_texture_maps(material, material_properties):
+
+        material_properties.texture_0 = material.texture0
+        material_properties.texture_1 = material.texture1
+        material_properties.texture_2 = material.texture2
+        material_properties.texture_3 = material.texture3
+
+        material_properties.diffuse_map = material.texture0
         material_properties.distortion_map = material.texture1
-    elif material.rendertype.value > 24:
         material_properties.normal_map = material.texture1
-
-
-def _fill_detail_texture(material, material_properties):
-    if material.rendertype != Rendertype.REFRACTION:
         material_properties.detail_map = material.texture2
-
-
-def _fill_envmap_texture(material, material_properties):
-    if material.rendertype != Rendertype.ENVMAPPED:
         material_properties.environment_map = material.texture3

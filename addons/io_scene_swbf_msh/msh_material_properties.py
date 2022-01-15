@@ -3,7 +3,11 @@
 import bpy
 from bpy.props import StringProperty, BoolProperty, EnumProperty, FloatVectorProperty, IntProperty
 from bpy.types import PropertyGroup
+
+from .msh_material import *
 from .msh_material_ui_strings import *
+from .msh_material_utilities import _REVERSE_RENDERTYPES_MAPPING
+
 
 UI_MATERIAL_RENDERTYPES = (
     ('NORMAL_BF2', "00 Normal (SWBF2)", UI_RENDERTYPE_NORMAL_BF2_DESC),
@@ -15,7 +19,9 @@ UI_MATERIAL_RENDERTYPES = (
     ('NORMALMAPPED_TILED_BF2', "24 Normalmapped Tiled (SWBF2)", UI_RENDERTYPE_NORMALMAPPED_TILED_BF2_DESC),
     ('NORMALMAPPED_ENVMAPPED_BF2', "26 Normalmapped Envmapped (SWBF2)", UI_RENDERTYPE_NORMALMAPPED_ENVMAPPED_BF2_DESC),
     ('NORMALMAPPED_BF2', "27 Normalmapped (SWBF2)", UI_RENDERTYPE_NORMALMAPPED_BF2_DESC),
-    ('NORMALMAPPED_TILED_ENVMAPPED_BF2', "29 Normalmapped Tiled Envmapped (SWBF2)", UI_RENDERTYPE_NORMALMAPPED_TILED_ENVMAPPED_BF2_DESC))
+    ('NORMALMAPPED_TILED_ENVMAPPED_BF2', "29 Normalmapped Tiled Envmapped (SWBF2)", UI_RENDERTYPE_NORMALMAPPED_TILED_ENVMAPPED_BF2_DESC),
+    ('UNSUPPORTED', "Other (SWBF1/2)", UI_RENDERTYPE_UNSUPPORTED_BF2_DESC))
+
 
 def _make_anim_length_entry(length):
     from math import sqrt
@@ -182,6 +188,17 @@ class MaterialProperties(PropertyGroup):
                                                "distort the scene behind them. Should be a normal map "
                                                "with '-forceformat v8u8' in it's '.tga.option' file.")
 
+    data_value_0: IntProperty(name="", description="First data value")
+    data_value_1: IntProperty(name="", description="Second data value")
+
+    rendertype_value: IntProperty(name="Rendertype Value", description="Raw number value of rendertype.", min=0, max=31)
+
+    texture_0: StringProperty(name="1", description="First texture slot")
+    texture_1: StringProperty(name="2", description="Second texture slot")
+    texture_2: StringProperty(name="3", description="Third texture slot")
+    texture_3: StringProperty(name="4", description="Fourth texture slot")
+
+
 class MaterialPropertiesPanel(bpy.types.Panel):
     """ Creates a Panel in the Object properties window """
     bl_label = "SWBF .msh Properties"
@@ -189,6 +206,8 @@ class MaterialPropertiesPanel(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "material"
+
+
 
     def draw(self, context):
         if context.material is None:
@@ -199,6 +218,10 @@ class MaterialPropertiesPanel(bpy.types.Panel):
         material_props = context.material.swbf_msh
 
         layout.prop(material_props, "rendertype")
+
+        if "UNSUPPORTED" in material_props.rendertype:
+            layout.prop(material_props, "rendertype_value")
+
         layout.prop(material_props, "specular_color")
 
         if "REFRACTION" not in material_props.rendertype:
@@ -233,21 +256,31 @@ class MaterialPropertiesPanel(bpy.types.Panel):
             elif "NORMALMAPPED_TILED" in material_props.rendertype:
                 row.prop(material_props, "normal_map_tiling_u")
                 row.prop(material_props, "normal_map_tiling_v")
+            elif "UNSUPPORTED" in material_props.rendertype:
+                row.prop(material_props, "data_value_0") 
+                row.prop(material_props, "data_value_1")
             else:
                 row.prop(material_props, "detail_map_tiling_u")
                 row.prop(material_props, "detail_map_tiling_v")
 
         layout.label(text="Texture Maps: ")
-        layout.prop(material_props, "diffuse_map")
+        if "UNSUPPORTED" not in material_props.rendertype:
+            layout.prop(material_props, "diffuse_map")
 
-        if "REFRACTION" not in material_props.rendertype:
-            layout.prop(material_props, "detail_map")
+            if "REFRACTION" not in material_props.rendertype:
+                layout.prop(material_props, "detail_map")
 
-        if "NORMALMAPPED" in material_props.rendertype:
-            layout.prop(material_props, "normal_map")
+            if "NORMALMAPPED" in material_props.rendertype:
+                layout.prop(material_props, "normal_map")
 
-        if "ENVMAPPED" in material_props.rendertype:
-            layout.prop(material_props, "environment_map")
+            if "ENVMAPPED" in material_props.rendertype:
+                layout.prop(material_props, "environment_map")
 
-        if "REFRACTION" in material_props.rendertype:
-            layout.prop(material_props, "distortion_map")
+            if "REFRACTION" in material_props.rendertype:
+                layout.prop(material_props, "distortion_map")
+        else:
+            layout.prop(material_props, "texture_0")
+            layout.prop(material_props, "texture_1")
+            layout.prop(material_props, "texture_2")
+            layout.prop(material_props, "texture_3")
+
