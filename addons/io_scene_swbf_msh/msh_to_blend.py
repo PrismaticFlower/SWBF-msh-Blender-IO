@@ -26,7 +26,7 @@ def extract_and_apply_anim(filename : str, scene : Scene):
 
     arma = bpy.context.view_layer.objects.active
 
-    if arma.type != 'ARMATURE':
+    if not arma or arma.type != 'ARMATURE':
         raise Exception("Select an armature to attach the imported animation to!")
 
     if scene.animation is None:
