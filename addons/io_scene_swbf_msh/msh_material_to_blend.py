@@ -1,4 +1,4 @@
-""" For finding textures and assigning material properties from entries in a Material """
+""" For finding textures and assigning MaterialProperties from entries in a Material """
 
 import bpy
 from typing import Dict

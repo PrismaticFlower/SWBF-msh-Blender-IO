@@ -117,20 +117,10 @@ def read_scene(input_file, anim_only=False, debug=0) -> Scene:
                 if seg.weights:
                     for weight_set in seg.weights:
                         for vweight in weight_set:
-
                             if vweight.bone in mndx_remap:
                                 vweight.bone = mndx_remap[vweight.bone]
                             else:
                                 vweight.bone = 0
-
-    # So in the new republic boba example, the weights aimed for bone_head instead map to sv_jettrooper...
-
-
-    #for key, val in mndx_remap.items():
-        #if scene.models[val].name == "bone_head" or scene.models[val].name == "sv_jettrooper":
-        #print("Key: {} is mapped to val: {}".format(key, val))
-        #print("Key: {}, val {} is model: {}".format(key, val, scene.models[val].name))
-
                     
     return scene
 
@@ -276,10 +266,6 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
         else:
             modl.skip_bytes(1)
 
-    global debug_level
-    if debug_level > 0:
-        print(modl.indent + "Read model " + model.name + " of type: " + str(model.model_type)[10:])
-
     return model
 
 
@@ -291,10 +277,6 @@ def _read_tran(tran: Reader) -> ModelTransform:
 
     xform.rotation = tran.read_quat()
     xform.translation = tran.read_vec()
-
-    global debug_level
-    if debug_level > 0:
-        print(tran.indent + "Rot: {} Loc: {}".format(str(xform.rotation), str(xform.translation)))
 
     return xform
 
@@ -341,6 +323,7 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                 for _ in range(num_texcoords):
                     geometry_seg.texcoords.append(Vector(uv0l.read_f32(2))) 
 
+        # TODO: Can't remember exact issue here...
         elif next_header == "NDXL":
             
             with segm.read_child() as ndxl:
@@ -399,7 +382,8 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
 
             geometry_seg.triangle_strips = strips
 
-            #if segm.read_u16 != 0: #trailing 0 bug https://schlechtwetterfront.github.io/ze_filetypes/msh.html#STRP
+            # TODO: Dont know how to handle trailing 0 bug yet: https://schlechtwetterfront.github.io/ze_filetypes/msh.html#STRP
+            #if segm.read_u16 != 0: 
             #    segm.skip_bytes(-2)
 
         elif next_header == "WGHT":
@@ -438,6 +422,8 @@ def _read_anm2(anm2: Reader) -> Animation:
             with anm2.read_child() as cycl:
                 # Dont even know what CYCL's data does.  Tried playing 
                 # with the values but didn't change anything in zenasset or ingame...
+
+                # Besides num_anims, which is never > 1 for any SWBF1/2 mshs I've seen
 
                 '''
                 num_anims = cycl.read_u32()

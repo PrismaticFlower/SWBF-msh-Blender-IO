@@ -18,6 +18,8 @@ class Rendertype(Enum):
     NORMALMAPPED_ENVMAPPED = 26
     NORMALMAPPED = 27
     NORMALMAPPED_TILED_ENVMAP = 29
+
+    # Placeholders to avoid crashes/import-export inconsistencies
     OTHER_1 = 1
     OTHER_2 = 2
     OTHER_4 = 4

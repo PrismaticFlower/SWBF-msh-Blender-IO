@@ -26,14 +26,17 @@ def inject_dummy_data(model : Model):
     model.geometry = [dummy_seg]
     model.model_type = ModelType.STATIC
 
-def convert_vector_space_(vec: Vector) -> Vector:
+def convert_vector_space(vec: Vector) -> Vector:
     return Vector((-vec.x, vec.z, vec.y))
 
-def convert_rotation_space_(quat: Quaternion) -> Quaternion:
+def convert_scale_space(vec: Vector) -> Vector:
+    return Vector(vec.xzy)
+
+def convert_rotation_space(quat: Quaternion) -> Quaternion:
     return Quaternion((-quat.w, quat.x, -quat.z, -quat.y))
 
 def model_transform_to_matrix(transform: ModelTransform):
-    return Matrix.Translation(convert_vector_space_(transform.translation)) @ convert_rotation_space_(transform.rotation).to_matrix().to_4x4()
+    return Matrix.Translation(convert_vector_space(transform.translation)) @ convert_rotation_space(transform.rotation).to_matrix().to_4x4()
 
 def scale_segments(scale: Vector, segments: List[GeometrySegment]):
     """ Scales are positions in the GeometrySegment list. """
@@ -144,14 +147,4 @@ def is_model_name_unused(name: str, models: List[Model]) -> bool:
             return False
 
     return True
-
-
-def convert_vector_space(vec: Vector) -> Vector:
-    return Vector((-vec.x, vec.z, vec.y))
-
-def convert_scale_space(vec: Vector) -> Vector:
-    return Vector(vec.xzy)
-
-def convert_rotation_space(quat: Quaternion) -> Quaternion:
-    return Quaternion((-quat.w, quat.x, -quat.z, -quat.y))
 

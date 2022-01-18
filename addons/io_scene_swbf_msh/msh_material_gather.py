@@ -24,10 +24,10 @@ def read_material(blender_material: bpy.types.Material) -> Material:
 
     result = Material()
 
-    if blender_material.swbf_msh is None:
+    if blender_material.swbf_msh_mat is None:
         return result
 
-    props = blender_material.swbf_msh
+    props = blender_material.swbf_msh_mat
 
     result.specular_color = props.specular_color.copy()
     result.rendertype = _read_material_props_rendertype(props)

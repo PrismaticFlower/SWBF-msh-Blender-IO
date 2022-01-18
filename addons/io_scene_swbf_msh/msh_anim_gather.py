@@ -1,5 +1,4 @@
-""" Gathers the Blender objects from the current scene and returns them as a list of
-    Model objects. """
+""" Converts currently active Action to an msh Animation """
 
 import bpy
 import math
@@ -11,30 +10,40 @@ from .msh_model_utilities import *
 from .msh_utilities import *
 from .msh_model_gather import *
 
+from .msh_skeleton_utilities import *
+
 from .crc import to_crc
 
 
+'''
+Convert the active Action into an Animation.  When exported SWBF anims, there is the issue
+that all bones in the anim must be in the skeleton/basepose anim.  We guarantee this by
+only keying bones if they are in the armature's preserved skeleton (swbf_msh_skel) and 
+adding dummy frames if the bones are not in the armature.
 
+If a preserved skeleton is not present, we include only the keyed bones and add dummy frames for
+the root (root_name)
+'''
 
 def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
 
+    if not armature.animation_data or not armature.animation_data.action:
+        raise RuntimeError("Cannot export animation data without an active Action on armature!")
+
     action = armature.animation_data.action
 
+
     # Set of bones to include in SKL2/animation stuff
-    keyable_bones : Set[str] = set()
-    
-    msh_skel = armature.data.swbf_msh_skel
+    keyable_bones = get_real_BONES(armature)
 
-    has_preserved_skel = len(msh_skel) > 0
+    # If it doesn't have a preserved skeleton, then we add the scene root. 
+    # If it does have a preserved skeleton, any objects not animatable by blender (i.e. objects above the skeleton, scene root)
+    # will be included in the preserved skeleton 
+    if not has_preserved_skeleton(armature):
+        keyable_bones.add(root_name)
 
-    if has_preserved_skel:
-        for bone in msh_skel:
-            #print("Adding {} from preserved skel to exported skeleton".format(bone.name))
-            keyable_bones.add(bone.name)
-    elif action:
-        for group in action.groups:
-            #print("Adding {} from action groups to exported skeleton".format(group.name))
-            keyable_bones.add(group.name)
+    # Subset of above bones to key with dummy frames (all bones not in armature)
+    dummy_bones = set([keyable_bone for keyable_bone in keyable_bones if keyable_bone not in armature.data.bones])
 
 
     anim = Animation();
@@ -51,41 +60,41 @@ def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
 
     anim.end_index = num_frames - 1
     
-    anim.bone_frames[root_crc] = ([], [])
-    for bone in armature.data.bones:
-        if bone.name in keyable_bones:
-            anim.bone_frames[to_crc(bone.name)] = ([], [])
+
+    for keyable_bone in keyable_bones:
+        anim.bone_frames[to_crc(keyable_bone)] = ([], [])
+
 
     for frame in range(num_frames):
         
         frame_time = framerange.x + frame * increment
         bpy.context.scene.frame_set(frame_time)
 
+        for keyable_bone in keyable_bones:
 
-        rframe_dummy = RotationFrame(frame, convert_rotation_space(Quaternion()))
-        tframe_dummy = TranslationFrame(frame, Vector((0.0,0.0,0.0)))
+            bone_crc = to_crc(keyable_bone)
 
-        anim.bone_frames[root_crc][0].append(tframe_dummy)
-        anim.bone_frames[root_crc][1].append(rframe_dummy)
+            if keyable_bone in dummy_bones:
 
+                rframe = RotationFrame(frame, convert_rotation_space(Quaternion()))
+                tframe = TranslationFrame(frame, Vector((0.0,0.0,0.0)))
 
-        for bone in armature.pose.bones:
+            else:
 
-            if bone.name not in keyable_bones:
-                continue
+                bone = armature.pose.bones[keyable_bone]
 
-            transform = bone.matrix
+                transform = bone.matrix
 
-            if bone.parent:
-                transform = bone.parent.matrix.inverted() @ transform
- 
-            loc, rot, _ = transform.decompose()
+                if bone.parent:
+                    transform = bone.parent.matrix.inverted() @ transform
+     
+                loc, rot, _ = transform.decompose()
 
-            rframe = RotationFrame(frame, convert_rotation_space(rot))
-            tframe = TranslationFrame(frame, convert_vector_space(loc))
+                rframe = RotationFrame(frame, convert_rotation_space(rot))
+                tframe = TranslationFrame(frame, convert_vector_space(loc))
 
-            anim.bone_frames[to_crc(bone.name)][0].append(tframe)
-            anim.bone_frames[to_crc(bone.name)][1].append(rframe)
+            anim.bone_frames[bone_crc][0].append(tframe)
+            anim.bone_frames[bone_crc][1].append(rframe)
 
 
     return anim

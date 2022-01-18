@@ -12,7 +12,11 @@ class ModelType(Enum):
     CLOTH = 2
     BONE = 3
     STATIC = 4
-    SHADOWVOLUME = 6
+
+    # Maybe there are only for BF1 models (http://www.secretsociety.com/forum/downloads/BF1/BF1%20Mesh%20File%20Format.txt)?
+    # According to that link #3 is envelope, not bone, maybe that's for TCW or smthg
+    # CHILDSKIN = 5 # I didnt bother with these, never encountered one and they might need adjustments to vertex data
+    SHADOWVOLUME = 6 # Pretty common
 
 class CollisionPrimitiveShape(Enum):
     SPHERE = 0

@@ -188,6 +188,7 @@ class MaterialProperties(PropertyGroup):
                                                "distort the scene behind them. Should be a normal map "
                                                "with '-forceformat v8u8' in it's '.tga.option' file.")
 
+    # Below props are for yet unsupported render types
     data_value_0: IntProperty(name="", description="First data value")
     data_value_1: IntProperty(name="", description="Second data value")
 
@@ -215,7 +216,7 @@ class MaterialPropertiesPanel(bpy.types.Panel):
 
         layout = self.layout
 
-        material_props = context.material.swbf_msh
+        material_props = context.material.swbf_msh_mat
 
         layout.prop(material_props, "rendertype")
 

@@ -1,10 +1,15 @@
-""" Contains Blender properties and UI for .msh materials. """
+""" Keeps track of exact skeleton when imported.  Possibly needed for exporting skeleton-compatible animations.  Will
+    probably be needed (with a matrix property) if we:
+        - add tip-to-tail adjustment and/or omit roots/effectors for imported skeletons to keep track of the original bone transforms
+        - add some sort of basepose-adjustment animation import option for already imported skeletons
+
+    I guess this might not need a panel, but I included it because the docs might need to reference it and 
+    people may want to exclude certain bones without deleting keyframes.
+"""
 
 import bpy
-from bpy.props import StringProperty, BoolProperty, EnumProperty, FloatVectorProperty, IntProperty
+from bpy.props import StringProperty
 from bpy.types import PropertyGroup
-from .msh_material_ui_strings import *
-from .msh_model import *
 
 
 class SkeletonProperties(PropertyGroup):

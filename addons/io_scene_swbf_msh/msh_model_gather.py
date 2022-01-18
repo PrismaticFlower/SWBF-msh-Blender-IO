@@ -9,6 +9,7 @@ from itertools import zip_longest
 from .msh_model import *
 from .msh_model_utilities import *
 from .msh_utilities import *
+from .msh_skeleton_utilities import *
 
 SKIPPED_OBJECT_TYPES = {"LATTICE", "CAMERA", "LIGHT", "SPEAKER", "LIGHT_PROBE"}
 MESH_OBJECT_TYPES = {"MESH", "CURVE", "SURFACE", "META", "FONT", "GPENCIL"}
@@ -59,7 +60,7 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
         else:
             if obj.parent is not None:
                 if obj.parent.type == "ARMATURE":
-                    model.parent = obj.parent.parent.name
+                    model.parent = obj.parent.parent.name if obj.parent.parent else ""
                     transform = obj.parent.matrix_local @ transform
                 else:
                     model.parent = obj.parent.name
@@ -298,6 +299,9 @@ def get_collision_primitive(obj: bpy.types.Object) -> CollisionPrimitive:
 
     return primitive
 
+
+
+
 def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveShape:
     """ Gets the CollisionPrimitiveShape of an object or raises an error if
         it can't. """
@@ -311,8 +315,13 @@ def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveSh
     if "box" in name or "cube" in name or "cuboid" in name:
         return CollisionPrimitiveShape.BOX
 
-    return CollisionPrimitiveShape.BOX
-    #raise RuntimeError(f"Object '{obj.name}' has no primitive type specified in it's name!")
+    # arc170 fighter has examples of box colliders without proper naming
+    prim_type = obj.swbf_msh_coll_prim.prim_type
+    if prim_type in [item.value for item in CollisionPrimitiveShape]:
+        return CollisionPrimitiveShape(prim_type)
+
+    raise RuntimeError(f"Object '{obj.name}' has no primitive type specified in it's name!")
+
 
 def check_for_bad_lod_suffix(obj: bpy.types.Object):
     """ Checks if the object has an LOD suffix that is known to be ignored by  """
@@ -373,7 +382,9 @@ def select_objects(export_target: str) -> List[bpy.types.Object]:
 
 
 def expand_armature(armature: bpy.types.Object) -> List[Model]:
-    
+
+    proper_BONES = get_real_BONES(armature)
+
     bones: List[Model] = []
 
     for bone in armature.data.bones:
@@ -398,7 +409,7 @@ def expand_armature(armature: bpy.types.Object) -> List[Model]:
 
         local_translation, local_rotation, _ = transform.decompose()
 
-        model.model_type = ModelType.BONE
+        model.model_type = ModelType.BONE if bone.name in proper_BONES else ModelType.NULL
         model.name = bone.name
         model.transform.rotation = convert_rotation_space(local_rotation)
         model.transform.translation = convert_vector_space(local_translation)

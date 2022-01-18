@@ -2,7 +2,8 @@
 
 from itertools import islice
 from typing import Dict
-from .msh_scene import Scene, create_scene_aabb
+from .msh_scene import Scene
+from .msh_scene_utilities import create_scene_aabb
 from .msh_model import *
 from .msh_material import *
 from .msh_writer import Writer
@@ -40,6 +41,7 @@ def save_scene(output_file, scene: Scene):
             with hedr.create_child("SKL2") as skl2:
                 _write_skl2(skl2, scene.animation)
 
+            # Def not necessary, including anyways
             with hedr.create_child("BLN2") as bln2:
                 _write_bln2(bln2, scene.animation)
 
