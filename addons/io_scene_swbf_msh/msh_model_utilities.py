@@ -3,7 +3,40 @@
 from typing import List
 from .msh_model import *
 from .msh_utilities import *
+import mathutils
+import math
 from mathutils import Vector, Matrix
+
+
+def inject_dummy_data(model : Model):
+    """  Adds a triangle and material to the model (scene root).  Needed to export zenasst-compatible skeletons. """
+    model.hidden = True
+
+    dummy_seg = GeometrySegment()
+    dummy_seg.material_name = ""
+
+    dummy_seg.positions = [Vector((0.0,0.1,0.0)), Vector((0.1,0.0,0.0)), Vector((0.0,0.0,0.1))]
+    dummy_seg.normals = [Vector((0.0,1.0,0.0)), Vector((1.0,0.0,0.0)), Vector((0.0,0.0,1.0))]
+    dummy_seg.texcoords = [Vector((0.1,0.1)), Vector((0.2,0.2)), Vector((0.3,0.3))]
+    tri = [[0,1,2]]
+    dummy_seg.triangles = tri
+    dummy_seg.polygons = tri
+    dummy_seg.triangle_strips = tri
+
+    model.geometry = [dummy_seg]
+    model.model_type = ModelType.STATIC
+
+def convert_vector_space(vec: Vector) -> Vector:
+    return Vector((-vec.x, vec.z, vec.y))
+
+def convert_scale_space(vec: Vector) -> Vector:
+    return Vector(vec.xzy)
+
+def convert_rotation_space(quat: Quaternion) -> Quaternion:
+    return Quaternion((-quat.w, quat.x, -quat.z, -quat.y))
+
+def model_transform_to_matrix(transform: ModelTransform):
+    return Matrix.Translation(convert_vector_space(transform.translation)) @ convert_rotation_space(transform.rotation).to_matrix().to_4x4()
 
 def scale_segments(scale: Vector, segments: List[GeometrySegment]):
     """ Scales are positions in the GeometrySegment list. """
@@ -114,3 +147,4 @@ def is_model_name_unused(name: str, models: List[Model]) -> bool:
             return False
 
     return True
+

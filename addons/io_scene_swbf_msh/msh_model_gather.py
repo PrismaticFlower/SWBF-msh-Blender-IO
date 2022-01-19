@@ -9,12 +9,13 @@ from itertools import zip_longest
 from .msh_model import *
 from .msh_model_utilities import *
 from .msh_utilities import *
+from .msh_skeleton_utilities import *
 
 SKIPPED_OBJECT_TYPES = {"LATTICE", "CAMERA", "LIGHT", "SPEAKER", "LIGHT_PROBE"}
 MESH_OBJECT_TYPES = {"MESH", "CURVE", "SURFACE", "META", "FONT", "GPENCIL"}
 MAX_MSH_VERTEX_COUNT = 32767
 
-def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
+def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool) -> Tuple[List[Model], bpy.types.Object]:
     """ Gathers the Blender objects from the current scene and returns them as a list of
         Model objects. """
 
@@ -23,6 +24,8 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
 
     models_list: List[Model] = []
 
+    armature_found = None
+
     for uneval_obj in select_objects(export_target):
         if uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents:
             continue
@@ -30,43 +33,72 @@ def gather_models(apply_modifiers: bool, export_target: str) -> List[Model]:
         if apply_modifiers:
             obj = uneval_obj.evaluated_get(depsgraph)
         else:
-            obj = uneval_obj
+            obj = uneval_obj 
 
         check_for_bad_lod_suffix(obj)
 
-        local_translation, local_rotation, _ = obj.matrix_local.decompose()
+        if obj.type == "ARMATURE":
+            models_list += expand_armature(obj)
+            armature_found = obj
+            continue
 
         model = Model()
         model.name = obj.name
-        model.model_type = get_model_type(obj)
+        model.model_type = get_model_type(obj, skeleton_only)
         model.hidden = get_is_model_hidden(obj)
-        model.transform.rotation = convert_rotation_space(local_rotation)
+
+        transform = obj.matrix_local
+
+        if obj.parent_bone:
+            model.parent = obj.parent_bone
+
+            # matrix_local, when called on an armature child also parented to a bone, appears to be broken.
+            # At the very least, the results contradict the docs...  
+            armature_relative_transform = obj.parent.matrix_world.inverted() @ obj.matrix_world
+            transform = obj.parent.data.bones[obj.parent_bone].matrix_local.inverted() @ armature_relative_transform 
+
+        else:
+            if obj.parent is not None:
+                if obj.parent.type == "ARMATURE":
+                    model.parent = obj.parent.parent.name if obj.parent.parent else ""
+                    transform = obj.parent.matrix_local @ transform
+                else:
+                    model.parent = obj.parent.name
+
+        local_translation, local_rotation, _ = transform.decompose()
+        model.transform.rotation = convert_rotation_space(local_rotation)  
         model.transform.translation = convert_vector_space(local_translation)
 
-        if obj.parent is not None:
-            model.parent = obj.parent.name
-
         if obj.type in MESH_OBJECT_TYPES:
+
             mesh = obj.to_mesh()
-            model.geometry = create_mesh_geometry(mesh)
+            model.geometry = create_mesh_geometry(mesh, obj.vertex_groups)
+
             obj.to_mesh_clear()
 
             _, _, world_scale = obj.matrix_world.decompose()
             world_scale = convert_scale_space(world_scale)
             scale_segments(world_scale, model.geometry)
-    
+                
             for segment in model.geometry:
                 if len(segment.positions) > MAX_MSH_VERTEX_COUNT:
                     raise RuntimeError(f"Object '{obj.name}' has resulted in a .msh geometry segment that has "
                                        f"more than {MAX_MSH_VERTEX_COUNT} vertices! Split the object's mesh up "
                                        f"and try again!")
+            if obj.vertex_groups:
+                model.bone_map = [group.name for group in obj.vertex_groups]
+
 
         if get_is_collision_primitive(obj):
             model.collisionprimitive = get_collision_primitive(obj)
 
+
         models_list.append(model)
 
-    return models_list
+
+    return (models_list, armature_found)
+
+
 
 def create_parents_set() -> Set[str]:
     """ Creates a set with the names of the Blender objects from the current scene
@@ -80,7 +112,7 @@ def create_parents_set() -> Set[str]:
 
     return parents
 
-def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
+def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[GeometrySegment]:
     """ Creates a list of GeometrySegment objects from a Blender mesh.
         Does NOT create triangle strips in the GeometrySegment however. """
 
@@ -93,13 +125,17 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
     material_count = max(len(mesh.materials), 1)
 
     segments: List[GeometrySegment] = [GeometrySegment() for i in range(material_count)]
-    vertex_cache: List[Dict[Tuple[float], int]] = [dict() for i in range(material_count)]
+    vertex_cache = [dict() for i in range(material_count)]
     vertex_remap: List[Dict[Tuple[int, int], int]] = [dict() for i in range(material_count)]
     polygons: List[Set[int]] = [set() for i in range(material_count)]
 
     if mesh.vertex_colors.active is not None:
         for segment in segments:
             segment.colors = []
+
+    if has_weights:
+        for segment in segments:
+            segment.weights = []
 
     for segment, material in zip(segments, mesh.materials):
         segment.material_name = material.name
@@ -116,11 +152,11 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
 
         if use_smooth_normal or mesh.use_auto_smooth:
             if mesh.has_custom_normals:
-                vertex_normal = mesh.loops[loop_index].normal
+                vertex_normal = Vector( mesh.loops[loop_index].normal )
             else:
-                vertex_normal = mesh.vertices[vertex_index].normal
+                vertex_normal = Vector( mesh.vertices[vertex_index].normal )
         else:
-            vertex_normal = face_normal
+            vertex_normal = Vector(face_normal)
 
         def get_cache_vertex():
             yield mesh.vertices[vertex_index].co.x
@@ -138,6 +174,11 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
             if segment.colors is not None:
                 for v in mesh.vertex_colors.active.data[loop_index].color:
                     yield v
+
+            if segment.weights is not None:
+                for v in mesh.vertices[vertex_index].groups:
+                    yield v.group
+                    yield v.weight
 
         vertex_cache_entry = tuple(get_cache_vertex())
         cached_vertex_index = cache.get(vertex_cache_entry, vertex_cache_miss_index)
@@ -162,6 +203,11 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
         if segment.colors is not None:
             segment.colors.append(list(mesh.vertex_colors.active.data[loop_index].color))
 
+        if segment.weights is not None:
+            groups = mesh.vertices[vertex_index].groups
+           
+            segment.weights.append([VertexWeight(v.weight, v.group) for v in groups])
+
         return new_index
 
     for tri in mesh.loop_triangles:
@@ -179,12 +225,14 @@ def create_mesh_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
 
     return segments
 
-def get_model_type(obj: bpy.types.Object) -> ModelType:
+def get_model_type(obj: bpy.types.Object, skel_only: bool) -> ModelType:
     """ Get the ModelType for a Blender object. """
-    # TODO: Skinning support, etc
 
-    if obj.type in MESH_OBJECT_TYPES:
-        return ModelType.STATIC
+    if obj.type in MESH_OBJECT_TYPES and not skel_only:
+        if obj.vertex_groups:
+            return ModelType.SKIN
+        else:
+            return ModelType.STATIC
 
     return ModelType.NULL
 
@@ -193,6 +241,8 @@ def get_is_model_hidden(obj: bpy.types.Object) -> bool:
 
     name = obj.name.lower()
 
+    if name.startswith("c_"):
+        return True
     if name.startswith("sv_"):
         return True
     if name.startswith("p_"):
@@ -249,6 +299,9 @@ def get_collision_primitive(obj: bpy.types.Object) -> CollisionPrimitive:
 
     return primitive
 
+
+
+
 def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveShape:
     """ Gets the CollisionPrimitiveShape of an object or raises an error if
         it can't. """
@@ -262,7 +315,13 @@ def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveSh
     if "box" in name or "cube" in name or "cuboid" in name:
         return CollisionPrimitiveShape.BOX
 
+    # arc170 fighter has examples of box colliders without proper naming
+    prim_type = obj.swbf_msh_coll_prim.prim_type
+    if prim_type in [item.value for item in CollisionPrimitiveShape]:
+        return CollisionPrimitiveShape(prim_type)
+
     raise RuntimeError(f"Object '{obj.name}' has no primitive type specified in it's name!")
+
 
 def check_for_bad_lod_suffix(obj: bpy.types.Object):
     """ Checks if the object has an LOD suffix that is known to be ignored by  """
@@ -320,11 +379,41 @@ def select_objects(export_target: str) -> List[bpy.types.Object]:
 
     return objects + parents
 
-def convert_vector_space(vec: Vector) -> Vector:
-    return Vector((-vec.x, vec.z, vec.y))
 
-def convert_scale_space(vec: Vector) -> Vector:
-    return Vector(vec.xzy)
 
-def convert_rotation_space(quat: Quaternion) -> Quaternion:
-    return Quaternion((-quat.w, quat.x, -quat.z, -quat.y))
+def expand_armature(armature: bpy.types.Object) -> List[Model]:
+
+    proper_BONES = get_real_BONES(armature)
+
+    bones: List[Model] = []
+
+    for bone in armature.data.bones:
+        model = Model()
+
+        transform = bone.matrix_local
+
+        if bone.parent:
+            transform = bone.parent.matrix_local.inverted() @ transform
+            model.parent = bone.parent.name
+        # If the bone has no parent_bone:
+        #   set model parent to SKIN object if there is one
+        #   set model parent to armature parent if there is one
+        else:
+            for child_obj in armature.children:
+                if child_obj.vertex_groups and not get_is_model_hidden(child_obj) and not child_obj.parent_bone:
+                    model.parent = child_obj.name
+                    break
+            if not model.parent and armature.parent:
+                model.parent = armature.parent.name
+
+
+        local_translation, local_rotation, _ = transform.decompose()
+
+        model.model_type = ModelType.BONE if bone.name in proper_BONES else ModelType.NULL
+        model.name = bone.name
+        model.transform.rotation = convert_rotation_space(local_rotation)
+        model.transform.translation = convert_vector_space(local_translation)
+
+        bones.append(model)
+
+    return bones

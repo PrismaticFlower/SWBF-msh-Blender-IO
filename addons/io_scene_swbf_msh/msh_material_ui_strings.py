@@ -1,5 +1,10 @@
 """ UI strings that are too long to have in msh_materials_properties.py """
 
+
+UI_RENDERTYPE_UNSUPPORTED_BF2_DESC = \
+    "Unsupported rendertype.  The raw values of the material "\
+    "are fully accessible, but their purpose is unknown.  "
+
 UI_RENDERTYPE_DETAIL_MAP_DESC = \
     "Can optionally have a Detail Map."
 

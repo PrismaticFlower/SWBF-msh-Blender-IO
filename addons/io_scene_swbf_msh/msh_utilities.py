@@ -1,6 +1,14 @@
 """ Misc utilities. """
 
 from mathutils import Vector
+from typing import List
+
+
+def vec_to_str(vec):
+    return "({:.4},{:.4},{:.4})".format(vec.x,vec.y,vec.z)
+
+def quat_to_str(quat):
+    return "({:.4},{:.4},{:.4},{:.4})".format(quat.w, quat.x, quat.y, quat.z)
 
 def add_vec(l: Vector, r: Vector) -> Vector:
     return Vector(v0 + v1 for v0, v1 in zip(l, r))
@@ -29,3 +37,14 @@ def pack_color(color) -> int:
     packed |= (int(color[3] * 255.0 + 0.5) << 24)
 
     return packed
+
+def unpack_color(color: int) -> List[float]:
+
+    mask = int(0x000000ff)
+
+    r = (color & (mask << 16)) / 255.0
+    g = (color & (mask << 8)) / 255.0
+    b = (color & mask) / 255.0
+    a = (color & (mask << 24)) / 255.0
+
+    return [r,g,b,a]

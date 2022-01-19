@@ -2,11 +2,15 @@
 
 from itertools import islice
 from typing import Dict
-from .msh_scene import Scene, create_scene_aabb
+from .msh_scene import Scene
+from .msh_scene_utilities import create_scene_aabb
 from .msh_model import *
 from .msh_material import *
 from .msh_writer import Writer
 from .msh_utilities import *
+
+from .crc import *
+
 
 def save_scene(output_file, scene: Scene):
     """ Saves scene to the supplied file. """
@@ -17,6 +21,7 @@ def save_scene(output_file, scene: Scene):
             with msh2.create_child("SINF") as sinf:
                 _write_sinf(sinf, scene)
 
+            model_index: Dict[str, int] = {model.name:(i+1) for i, model in enumerate(scene.models)}
             material_index: Dict[str, int] = {}
 
             with msh2.create_child("MATL") as matl:
@@ -24,7 +29,24 @@ def save_scene(output_file, scene: Scene):
 
             for index, model in enumerate(scene.models):
                 with msh2.create_child("MODL") as modl:
-                    _write_modl(modl, model, index, material_index)
+                    _write_modl(modl, model, index, material_index, model_index)
+
+        # Contrary to earlier belief, anim/skel info does not need to be exported for animated models
+        # BUT, unless a model is a BONE, it wont animate!
+        # This is not necessary when exporting animations.  When exporting animations, the following
+        # chunks are necessary and the animated models can be marked as NULLs 
+        if scene.animation is not None:
+            # Seems as though SKL2 is wholly unneccessary from SWBF's perspective (for models and anims),
+            # but it is there in all stock models/anims
+            with hedr.create_child("SKL2") as skl2:
+                _write_skl2(skl2, scene.animation)
+
+            # Def not necessary, including anyways
+            with hedr.create_child("BLN2") as bln2:
+                _write_bln2(bln2, scene.animation)
+
+            with hedr.create_child("ANM2") as anm2:              
+                _write_anm2(anm2, scene.animation)
 
         with hedr.create_child("CL1L"):
             pass
@@ -76,7 +98,7 @@ def _write_matd(matd: Writer, material_name: str, material: Material):
         data.write_f32(1.0, 1.0, 1.0, 1.0) # Diffuse Color (Seams to get ignored by modelmunge)
         data.write_f32(material.specular_color[0], material.specular_color[1],
                        material.specular_color[2], 1.0)
-        data.write_f32(0.0, 0.0, 0.0, 1.0) # Ambient Color (Seams to get ignored by modelmunge and Zero(?))
+        data.write_f32(1.0, 1.0, 1.0, 1.0) # Ambient Color (Seams to get ignored by modelmunge and Zero(?))
         data.write_f32(50.0) # Specular Exponent/Decay (Gets ignored by RedEngine in SWBFII for all known materials)    
     with matd.create_child("ATRB") as atrb:
         atrb.write_u8(material.flags.value)
@@ -97,12 +119,12 @@ def _write_matd(matd: Writer, material_name: str, material: Material):
             with matd.create_child("TX3D") as tx3d:
                 tx3d.write_string(material.texture3)
 
-def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str, int]):
+def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str, int], model_index: Dict[str, int]):
     with modl.create_child("MTYP") as mtyp:
         mtyp.write_u32(model.model_type.value)
 
     with modl.create_child("MNDX") as mndx:
-        mndx.write_u32(index)
+        mndx.write_u32(index + 1)
 
     with modl.create_child("NAME") as name:
         name.write_string(model.name)
@@ -120,9 +142,19 @@ def _write_modl(modl: Writer, model: Model, index: int, material_index: Dict[str
 
     if model.geometry is not None:
         with modl.create_child("GEOM") as geom:
+
+            with geom.create_child("BBOX") as bbox:
+                bbox.write_f32(0.0, 0.0, 0.0, 1.0)
+                bbox.write_f32(0, 0, 0)
+                bbox.write_f32(1.0,1.0,1.0,2.0)
+
             for segment in model.geometry:
                 with geom.create_child("SEGM") as segm:
                     _write_segm(segm, segment, material_index)
+
+            if model.bone_map:
+                with geom.create_child("ENVL") as envl:
+                    _write_envl(envl, model, model_index)
 
     if model.collisionprimitive is not None:
         with modl.create_child("SWCI") as swci:
@@ -147,10 +179,14 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
         for position in segment.positions:
             posl.write_f32(position.x, position.y, position.z)
 
+    if segment.weights:
+        with segm.create_child("WGHT") as wght:
+            _write_wght(wght, segment.weights)
+
     with segm.create_child("NRML") as nrml:
         nrml.write_u32(len(segment.normals))
 
-        for normal in segment.normals:
+        for i,normal in enumerate(segment.normals):
             nrml.write_f32(normal.x, normal.y, normal.z)
 
     if segment.colors is not None:
@@ -160,11 +196,12 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
             for color in segment.colors:
                 clrl.write_u32(pack_color(color))
 
-    with segm.create_child("UV0L") as uv0l:
-        uv0l.write_u32(len(segment.texcoords))
+    if segment.texcoords is not None:
+        with segm.create_child("UV0L") as uv0l:
+            uv0l.write_u32(len(segment.texcoords))
 
-        for texcoord in segment.texcoords:
-            uv0l.write_f32(texcoord.x, texcoord.y)
+            for texcoord in segment.texcoords:
+                uv0l.write_f32(texcoord.x, texcoord.y)
 
     with segm.create_child("NDXL") as ndxl:
         ndxl.write_u32(len(segment.polygons))
@@ -189,3 +226,82 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
 
             for index in islice(strip, 2, len(strip)):
                 strp.write_u16(index)
+
+'''
+SKINNING CHUNKS
+'''
+def _write_wght(wght: Writer, weights: List[List[VertexWeight]]):
+    wght.write_u32(len(weights))
+
+    for weight_list in weights:
+        weight_list += [VertexWeight(0.0, 0)] * 4
+        weight_list = sorted(weight_list, key=lambda w: w.weight, reverse=True)
+        weight_list = weight_list[:4]
+
+        total_weight = max(sum(map(lambda w: w.weight, weight_list)), 1e-5)
+
+        for weight in weight_list:
+            wght.write_i32(weight.bone)
+            wght.write_f32(weight.weight / total_weight)
+
+def _write_envl(envl: Writer, model: Model, model_index: Dict[str, int]):
+    envl.write_u32(len(model.bone_map))
+    for bone_name in model.bone_map:
+        envl.write_u32(model_index[bone_name])
+
+'''
+SKELETON CHUNKS
+'''
+def _write_bln2(bln2: Writer, anim: Animation):
+    bones = anim.bone_frames.keys()
+    bln2.write_u32(len(bones))
+
+    for bone_crc in bones:
+        bln2.write_u32(bone_crc, 0) 
+
+def _write_skl2(skl2: Writer, anim: Animation):
+    bones = anim.bone_frames.keys()
+    skl2.write_u32(len(bones)) 
+
+    for bone_crc in bones:
+        skl2.write_u32(bone_crc, 0) #default values from docs
+        skl2.write_f32(1.0, 0.0, 0.0)
+
+'''
+ANIMATION CHUNKS
+'''
+def _write_anm2(anm2: Writer, anim: Animation):
+
+    with anm2.create_child("CYCL") as cycl:
+        
+        cycl.write_u32(1)
+        cycl.write_string(anim.name)
+        
+        for _ in range(63 - len(anim.name)):
+            cycl.write_u8(0)
+        
+        cycl.write_f32(anim.framerate)
+        cycl.write_u32(0) #what does play style refer to?
+        cycl.write_u32(anim.start_index, anim.end_index) #first frame indices
+
+
+    with anm2.create_child("KFR3") as kfr3:
+        
+        kfr3.write_u32(len(anim.bone_frames))
+
+        for bone_crc in anim.bone_frames:
+            kfr3.write_u32(bone_crc)
+            kfr3.write_u32(0) #what is keyframe type?
+
+            translation_frames, rotation_frames = anim.bone_frames[bone_crc]
+
+            kfr3.write_u32(len(translation_frames), len(rotation_frames))
+
+            for frame in translation_frames:
+                kfr3.write_u32(frame.index)
+                kfr3.write_f32(frame.translation.x, frame.translation.y, frame.translation.z)
+
+            for frame in rotation_frames:
+                kfr3.write_u32(frame.index)
+                kfr3.write_f32(frame.rotation.x, frame.rotation.y, frame.rotation.z, frame.rotation.w)
+                

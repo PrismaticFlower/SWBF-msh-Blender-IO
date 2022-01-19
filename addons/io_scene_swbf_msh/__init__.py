@@ -53,12 +53,18 @@ if "bpy" in locals():
 # End of stuff taken from glTF
 
 import bpy
-from bpy_extras.io_utils import ExportHelper
-from bpy.props import BoolProperty, EnumProperty
+from bpy_extras.io_utils import ExportHelper, ImportHelper
+from bpy.props import BoolProperty, EnumProperty, CollectionProperty
 from bpy.types import Operator
-from .msh_scene import create_scene
+from .msh_scene_utilities import create_scene
 from .msh_scene_save import save_scene
+from .msh_scene_read import read_scene
 from .msh_material_properties import *
+from .msh_skeleton_properties import *
+from .msh_collision_prim_properties import *
+from .msh_to_blend import *
+from .zaa_to_blend import *
+
 
 class ExportMSH(Operator, ExportHelper):
     """ Export the current scene as a SWBF .msh file. """
@@ -97,35 +103,128 @@ class ExportMSH(Operator, ExportHelper):
         default=True
     )
 
+    export_with_animation: BoolProperty(
+        name="Export With Animation",
+        description="Includes animation data extracted from the action currently set on armature.",
+        default=False
+    )
+
+    export_as_skeleton: BoolProperty(
+        name="Export Objects As Skeleton",
+        description="Check if you intend to export skeleton data for consumption by ZenAsset.",
+        default=False
+    )
+
+
     def execute(self, context):
+
         with open(self.filepath, 'wb') as output_file:
             save_scene(
                 output_file=output_file,
                 scene=create_scene(
                     generate_triangle_strips=self.generate_triangle_strips, 
                     apply_modifiers=self.apply_modifiers,
-                    export_target=self.export_target))
+                    export_target=self.export_target,
+                    skel_only=self.export_as_skeleton,
+                    export_anim=self.export_with_animation
+                ),
+            )
 
         return {'FINISHED'}
+
 
 # Only needed if you want to add into a dynamic menu
 def menu_func_export(self, context):
     self.layout.operator(ExportMSH.bl_idname, text="SWBF msh (.msh)")
 
+
+
+
+
+class ImportMSH(Operator, ImportHelper):
+    """ Import an SWBF .msh file. """
+
+    bl_idname = "swbf_msh.import"
+    bl_label = "Import SWBF .msh File"
+    filename_ext = ".msh"
+
+    files: CollectionProperty(
+            name="File Path",
+            type=bpy.types.OperatorFileListElement,
+            )
+
+    filter_glob: StringProperty(
+        default="*.msh;*.zaa;*.zaabin",
+        options={'HIDDEN'},
+        maxlen=255,  # Max internal buffer length, longer would be clamped.
+    )
+
+    animation_only: BoolProperty(
+        name="Import Animation Only",
+        description="Import animation and append as a new action to currently selected armature.",
+        default=False
+    )
+
+
+    def execute(self, context):
+        dirname = os.path.dirname(self.filepath)
+        for file in self.files:
+            filepath = os.path.join(dirname, file.name)
+            if filepath.endswith(".zaabin") or filepath.endswith(".zaa"):
+                extract_and_apply_munged_anim(filepath)
+            else:
+                with open(filepath, 'rb') as input_file:              
+                    scene = read_scene(input_file, self.animation_only)
+                    
+                    if not self.animation_only:
+                        extract_scene(filepath, scene)
+                    else:
+                        extract_and_apply_anim(filepath, scene)
+
+        return {'FINISHED'}
+
+def menu_func_import(self, context):
+    self.layout.operator(ImportMSH.bl_idname, text="SWBF msh (.msh)")
+
+
+
+
 def register():
+    bpy.utils.register_class(CollisionPrimitiveProperties)
+
     bpy.utils.register_class(MaterialProperties)
     bpy.utils.register_class(MaterialPropertiesPanel)
+
+    bpy.utils.register_class(SkeletonProperties)
+    bpy.utils.register_class(SkeletonPropertiesPanel)
+
     bpy.utils.register_class(ExportMSH)
+    bpy.utils.register_class(ImportMSH)
 
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
-    bpy.types.Material.swbf_msh = bpy.props.PointerProperty(type=MaterialProperties)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
+
+    bpy.types.Object.swbf_msh_coll_prim = bpy.props.PointerProperty(type=CollisionPrimitiveProperties)
+    bpy.types.Material.swbf_msh_mat = bpy.props.PointerProperty(type=MaterialProperties)
+    bpy.types.Armature.swbf_msh_skel = bpy.props.CollectionProperty(type=SkeletonProperties)
+
 
 
 def unregister():
+    bpy.utils.unregister_class(CollisionPrimitiveProperties)
+
     bpy.utils.unregister_class(MaterialProperties)
     bpy.utils.unregister_class(MaterialPropertiesPanel)
+
+    bpy.utils.unregister_class(SkeletonProperties)
+    bpy.utils.unregister_class(SkeletonPropertiesPanel)
+
     bpy.utils.unregister_class(ExportMSH)
+    bpy.utils.unregister_class(ImportMSH)
+
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+
 
 if __name__ == "__main__":
     register()
