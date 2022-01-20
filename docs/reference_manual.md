@@ -72,7 +72,7 @@ Whether to apply [Modifiers](https://docs.blender.org/manual/en/latest/modeling/
 
 #### Export As Skeleton
 
-Excludes geometry data from the exported msh file, BUT ensures that the scene root has dummy geometry to satisfy the animation munger.
+Excludes geometry data from the exported .msh file, BUT ensures that the scene root has dummy geometry to satisfy the animation munger.
 
 #### Export With Animation
 
@@ -188,13 +188,13 @@ This shouldn't be relevant as any mesh that you haven't assigned a material to i
 
 ## Importer
 
-This plugin can import msh files as well as .zaa_ and .zaabin files.  Msh files can be imported as models or animations.
+This plugin can import .msh files as well as .zaa_ and .zaabin files.  .msh files can be imported as models or animations.
 
 ### Import Properties
 
 #### Import Animation Only
 
-If you wish to import an msh or zaa_/zaabin file as an animation, check this box.  This will only work so long as you have preselected an armature.  The imported animation will then be added to the armature as an Action.  If an Action with the same name already exists, the importer will replace it.
+If you wish to import an .msh or zaa_/zaabin file as an animation, check this box.  This will only work so long as you have preselected an armature.  The imported animation will then be added to the armature as an Action. If an Action with the same name already exists, the importer will replace it.
 
 ### Import Failures
 
@@ -217,7 +217,7 @@ Serious bug with many possible causes, please notify a dev.
 
 #### Deleted skeleton meshes 
 
-If the msh model to be imported has nodes with meshes that are weighted to or animated, the mesh data on that node will be lost upon import.  This is because nodes that are weighted to or animated must be converted to bones in an armature, and bones in an armature cannot be meshes.  Eventually we will add functionality to preserve the mesh as a specially named child object of the relevant armature bone.
+If the .msh model to be imported has nodes with meshes that are weighted to or animated, the mesh data on that node will be lost upon import. This is because nodes that are weighted to or animated must be converted to bones in an armature, and bones in an armature cannot be meshes.  Eventually we will add functionality to preserve the mesh as a specially named child object of the relevant armature bone.
 
 #### Normals and vertex colors
 
@@ -572,7 +572,7 @@ This guide assumes you have working knowledge of Blender Armatures and deformati
 
 XSI has a very free-form take on skeletons and skinning.  Models can be skinned to other models in a rather arbitrary manner, whereas in Blender, a model can only be skinned if it is parented to an armature and can only skin to bones in that armature.  
 
-Moreover, ZeroEditor requires that skinned models be parents of their skeletons, which directly contradicts the structure Blender mandates!  The exporter works around this by reparenting skinned objects to their armature's parent, and reparenting the root bones of the armature to the skin object.  Note in the examples below that the armature's bones are not technically part of the scene's object hierarchy in Blender, as they belong to the armature object itself.   
+Moreover, Zero Editor requires that skinned models be parents of their skeletons, which directly contradicts the structure Blender mandates! The exporter works around this by reparenting skinned objects to their armature's parent, and reparenting the root bones of the armature to the skin object. Note in the examples below that the armature's bones are not technically part of the scene's object hierarchy in Blender, as they belong to the armature object itself.
 
 ### Example Skin Hierarchy
 Upon export, skinned objects are reparented to the armature's parent, and the armature skeleton reparented to the main skinned object:
@@ -617,9 +617,9 @@ The same goes for objects that are children of an armature, but are parented dir
 
 ### Skinning Notes
 
-Skinning/vertex-weighting in Blender is a very complex topic, these docs will focus solely on your considerations for exporting a Zero compatible skin.  
+Skinning/vertex-weighting in Blender is a very complex topic, these docs will focus solely on your considerations for exporting a SWBF compatible skin.  
 
-1. Zero can weight a vertex to a maximum of 4 bones.  When painting weights, ensure each vertex is meaningfully influenced by a maximum of 4 bones.  It won't break the exporter if you exceed 4, but the 4 largest weights per-vertex will be kept and renormalized, and the others will be discarded.  
+1. .msh files can weight a vertex to a maximum of 4 bones.  When painting weights, ensure each vertex is meaningfully influenced by a maximum of 4 bones. It won't break the exporter if you exceed 4, but the 4 largest weights per-vertex will be kept and renormalized, and the others will be discarded. It is also worth mentioning however that SWBF2 (PC) only appears to supports 1 weight per vertex, despite the toolchain accepting and processing .msh files with more weights.
 
 2. An object will be exported as a skin if it is parented to an armature and has vertex groups.  The skeleton will be reparented to the skin object which is not named as a collision or LOD object.  
 
@@ -633,7 +633,7 @@ This guide assumes you know how Armatures work, and how to switch between, creat
 
 ### Actions and Animations
 
-This exporter can convert Actions used by Armatures to ZeroEngine-compatible animations.  If an armature is found among the objects to be exported, the exporter can include the armature's currently set Action as an animation in the msh file.  As of now, animation via Armature is the only way to export Blender Actions.
+This exporter can convert Actions used by Armatures to animations compatible with SWBF's toolchain. If an armature is found among the objects to be exported, the exporter can include the armature's currently set Action as an animation in the .msh file.  As of now, animation via Armature is the only way to export Blender Actions.
 
 When exporting an Action, all frames between and including the first and last *keyframes* of the Action will be included.  For example, if the first and last keyframes are 0 and 5, the exporter will record bone positions at frames 0, 1, 2, 3, 4, and 5, regardless of how many frames are actually keyed.  Don't worry about using as few keyframes as possible to save a smaller animation as the exporter will record bone positions and rotations for each frame.
 
@@ -644,7 +644,7 @@ If you have armature bones that are weighted to by a skinned object, but you do 
 
 #### ```Export As Skeleton```
 
-Excludes geometry data from the exported msh file, since ```zenasset``` ignores it.  Skins and static meshes will be exported as nulls.  However, since ```zenasset``` does mandate the root object have some material and geometry data, this option will add in dummy geometry and a material to the msh file's scene root.  This isn't necessary for exporting animations, but is highly recommended to avoid writing unnecessary data and ensuring the root  object is acceptable to ```zenasset```.
+Excludes geometry data from the exported .msh file, since ```zenasset``` ignores it.  Skins and static meshes will be exported as nulls.  However, since ```zenasset``` does mandate the root object have some material and geometry data, this option will add in dummy geometry and a material to the .msh file's scene root. This isn't necessary for exporting animations, but is highly recommended to avoid writing unnecessary data and ensuring the root  object is acceptable to ```zenasset```.
 
 #### ```Export With Animation```
 
@@ -654,7 +654,7 @@ So, if you wish to export an animation to be munged, it is best to select both `
 
 ### Animation notes:  
 
-1. If exporting an animation, your exported msh file's name should be that of the animation/action itself.
+1. If exporting an animation, your exported .msh file's name should be that of the animation/action itself.
 
 2. Bone constraints are not exported.
 
