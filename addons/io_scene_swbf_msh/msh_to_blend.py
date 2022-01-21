@@ -104,6 +104,8 @@ def extract_and_apply_anim(filename : str, scene : Scene):
 
 
 # Create the msh hierachy.  Armatures are not created here.  Much of this could use some optimization...
+
+# TODO: Replace with an approach informed by existing Blender addons (io_scene_obj e.g.) 
 def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) -> Dict[str, bpy.types.Object]:
 
     # This will be filled with model names -> Blender objects and returned
@@ -128,22 +130,34 @@ def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) 
 
             face_range_to_material_index = []
 
+            materials_to_use = []
+            segment_index = 0
+
             if model.geometry:
 
-                #if model.collisionprimitive is None:
-                #    print(f"On model: {model.name}")
+                def validate_segment(segment : GeometrySegment):
+                    if not segment.positions:
+                        return False
+                    if not segment.triangles and not segment.triangle_strips and not segment.polygons:
+                        return False
+                    if not segment.material_name:
+                        return False
+                    return True
 
-                for i,seg in enumerate(model.geometry):
+
+                for seg in model.geometry:
+
+                    if not validate_segment(seg):
+                        continue
 
                     verts += [tuple(convert_vector_space(v)) for v in seg.positions]
 
-                    #if model.collisionprimitive is None:
-                    #   print("Importing segment with material: {} with and {} verts".format(seg.material_name, len(seg.positions)))
+                    materials_to_use.append(seg.material_name)
 
                     if seg.weights:
                         weights_offsets[offset] = seg.weights
 
-                    if seg.texcoords is not None:
+                    if seg.texcoords:
                         full_texcoords += seg.texcoords
                     else:
                         full_texcoords += [(0.0,0.0) for _ in range(len(seg.positions))]
@@ -152,16 +166,21 @@ def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) 
 
                     if seg.triangles:
                         faces += [tuple([ind + offset for ind in tri]) for tri in seg.triangles]
-                    else:
+                    elif seg.triangle_strips:
                         for strip in seg.triangle_strips:
                             for i in range(len(strip) - 2):
                                 face = tuple([offset + strip[j] for j in range(i,i+3)])
                                 faces.append(face)
+                    elif seg.polygons:
+                        faces += [tuple([ind + offset for ind in polygon]) for polygon in seg.polygons]
+
 
                     face_range_upper = len(faces)
-                    face_range_to_material_index.append((face_range_lower, face_range_upper, i))
+                    face_range_to_material_index.append((face_range_lower, face_range_upper, segment_index))
 
                     offset += len(seg.positions)
+
+                    segment_index += 1
 
             new_mesh.from_pydata(verts, [], faces)
             new_mesh.update()
@@ -185,9 +204,8 @@ def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) 
                             edit_mesh_face.material_index = ind
 
                     for i,loop in enumerate(edit_mesh_face.loops):
-
                         texcoord = full_texcoords[mesh_face[i]]
-                        loop[uvlayer].uv = tuple([texcoord.x, texcoord.y])
+                        loop[uvlayer].uv = tuple([texcoord[0], texcoord[1]])
 
                 edit_mesh.to_mesh(new_mesh)
                 edit_mesh.free()
@@ -213,11 +231,9 @@ def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) 
             '''
             Assign Material slots
             '''
-            if model.geometry:
-                for seg in model.geometry:
-                    if seg.material_name:
-                        material = materials_map[seg.material_name]
-                        new_obj.data.materials.append(material)
+            for material_name in materials_to_use:
+                material = materials_map[material_name]
+                new_obj.data.materials.append(material)
         
         else:
 

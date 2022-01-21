@@ -323,18 +323,22 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                 for _ in range(num_texcoords):
                     geometry_seg.texcoords.append(Vector(uv0l.read_f32(2))) 
 
-        # TODO: Can't remember exact issue here...
+        # TODO: Can't remember exact issue here, but this chunk sometimes fails
         elif next_header == "NDXL":
-            
-            with segm.read_child() as ndxl:
-                pass
-                '''
-                num_polygons = ndxl.read_u32()
 
-                for _ in range(num_polygons):
-                    polygon = ndxl.read_u16(ndxl.read_u16())
-                    geometry_seg.polygons.append(polygon)
-                '''
+            with segm.read_child() as ndxl:
+
+                try:
+                    num_polygons = ndxl.read_u32()
+
+                    for _ in range(num_polygons):
+                        num_inds = ndxl.read_u16()
+                        polygon = ndxl.read_u16(num_inds)
+                        geometry_seg.polygons.append(polygon)
+                except:
+                    print("Failed to read polygon list!")
+                    geometry_seg.polygons = []
+                
 
         elif next_header == "NDXT":
             with segm.read_child() as ndxt:
