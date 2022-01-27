@@ -323,6 +323,7 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                 for _ in range(num_texcoords):
                     geometry_seg.texcoords.append(Vector(uv0l.read_f32(2))) 
 
+
         # TODO: Can't remember exact issue here, but this chunk sometimes fails
         elif next_header == "NDXL":
 
@@ -347,46 +348,37 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                 for _ in range(num_tris):
                     geometry_seg.triangles.append(ndxt.read_u16(3))
         
-        # There could be major issues with this, so far it hasn't failed but its inelegance irks me
+        # Try catch for safety's sake
         elif next_header == "STRP":
             strips : List[List[int]] = []
 
             with segm.read_child() as strp:
-                num_indicies = strp.read_u32()
 
-                num_indicies_read = 0
+                try: 
+                    num_indicies = strp.read_u32()
 
-                curr_strip = []
-                previous_flag = False
+                    indices = strp.read_u16(num_indicies) 
 
-                if num_indicies > 0:
-                    index, index1 = strp.read_u16(2)
-                    curr_strip = [index & 0x7fff, index1 & 0x7fff]
-                    num_indicies_read += 2
+                    strip_indices = []
 
-                for i in range(num_indicies - 2):
-                    index = strp.read_u16(1)
+                    for i in range(num_indicies - 1):
+                        if indices[i] & 0x8000 > 0 and indices[i+1] & 0x8000 > 0:
+                            strip_indices.append(i)
 
-                    if index & 0x8000 > 0:
-                        index = index & 0x7fff
+                    strip_indices.append(num_indicies)
 
-                        if previous_flag:
-                            previous_flag = False
-                            curr_strip.append(index)
-                            strips.append(curr_strip[:-2])
-                            curr_strip = curr_strip[-2:]
-                            continue
-                        else:
-                            previous_flag = True
+                    for i in range(len(strip_indices) - 1):
+                        start = strip_indices[i]
+                        end = strip_indices[i+1]
 
-                    else:
-                        previous_flag = False
-                     
-                    curr_strip.append(index)
+                        strips.append(list([indices[start] & 0x7fff, indices[start+1] & 0x7fff]) + list(indices[start+2 : end]))
+                except:
+                    print("Failed to read triangle strips")
+                    geometry_seg.triangle_strips = []
 
             geometry_seg.triangle_strips = strips
 
-            # TODO: Dont know how to handle trailing 0 bug yet: https://schlechtwetterfront.github.io/ze_filetypes/msh.html#STRP
+            # TODO: Dont know if/how to handle trailing 0 bug yet: https://schlechtwetterfront.github.io/ze_filetypes/msh.html#STRP
             #if segm.read_u16 != 0: 
             #    segm.skip_bytes(-2)
 
