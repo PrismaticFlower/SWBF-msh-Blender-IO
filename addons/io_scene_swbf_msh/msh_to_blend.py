@@ -166,11 +166,16 @@ def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) 
 
                     if seg.triangles:
                         faces += [tuple([ind + offset for ind in tri]) for tri in seg.triangles]
+                    
                     elif seg.triangle_strips:
                         for strip in seg.triangle_strips:
                             for i in range(len(strip) - 2):
-                                face = tuple([offset + strip[j] for j in range(i,i+3)])
+                                if i % 2 == 0:
+                                    face = tuple([offset + strip[j] for j in [i,i+1,i+2]])
+                                else:
+                                    face = tuple([offset + strip[j] for j in [i,i+2,i+1]])                                    
                                 faces.append(face)
+                    
                     elif seg.polygons:
                         faces += [tuple([ind + offset for ind in polygon]) for polygon in seg.polygons]
 
