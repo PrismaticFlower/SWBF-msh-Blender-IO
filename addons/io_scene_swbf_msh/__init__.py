@@ -56,7 +56,7 @@ import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 from bpy.props import BoolProperty, EnumProperty, CollectionProperty
 from bpy.types import Operator
-from .msh_scene_utilities import create_scene
+from .msh_scene_utilities import create_scene, set_scene_animation
 from .msh_scene_save import save_scene
 from .msh_scene_read import read_scene
 from .msh_material_properties import *
@@ -103,32 +103,47 @@ class ExportMSH(Operator, ExportHelper):
         default=True
     )
 
-    export_with_animation: BoolProperty(
-        name="Export With Animation",
-        description="Includes animation data extracted from the action currently set on armature.",
-        default=False
-    )
 
-    export_as_skeleton: BoolProperty(
-        name="Export Objects As Skeleton",
-        description="Check if you intend to export skeleton data for consumption by ZenAsset.",
-        default=False
-    )
+    animation_export: EnumProperty(name="Export Animation(s)",
+                                description="If/how animation data should be exported.",
+                                items=(
+                                    ('NONE', "None", "Do not include animation data in the export."),
+                                    ('ACTIVE', "Active", "Export animation extracted from the scene's Armature's active Action."),
+                                    ('BATCH', "Batch", "Export a separate animation file for each Action in the scene.")
+                                ),
+                                default='NONE')
 
 
     def execute(self, context):
 
-        with open(self.filepath, 'wb') as output_file:
-            save_scene(
-                output_file=output_file,
-                scene=create_scene(
-                    generate_triangle_strips=self.generate_triangle_strips, 
-                    apply_modifiers=self.apply_modifiers,
-                    export_target=self.export_target,
-                    skel_only=self.export_as_skeleton,
-                    export_anim=self.export_with_animation
-                ),
-            )
+        scene, armature_obj = create_scene(
+                                generate_triangle_strips=self.generate_triangle_strips, 
+                                apply_modifiers=self.apply_modifiers,
+                                export_target=self.export_target,
+                                skel_only=self.animation_export != 'NONE') # Exclude geometry data (except root stuff) if we're doing anims
+
+        if self.animation_export != 'NONE' and not armature_obj:
+            raise Exception("Could not find an armature object from which to export animations!")
+
+
+        def write_scene_to_file(filepath : str, scene_to_write : Scene):
+            with open(filepath, 'wb') as output_file:
+                save_scene(output_file=output_file, scene=scene_to_write)
+
+        if self.animation_export == 'ACTIVE':
+            set_scene_animation(scene, armature_obj)
+            write_scene_to_file(self.filepath, scene)
+
+        elif self.animation_export == 'BATCH':    
+            export_dir = self.filepath if os.path.isdir(self.filepath) else os.path.dirname(self.filepath)
+
+            for action in bpy.data.actions:
+                anim_save_path = os.path.join(export_dir, action.name + ".msh")
+                armature_obj.animation_data.action = action
+                set_scene_animation(scene, armature_obj)
+                write_scene_to_file(anim_save_path, scene)
+        else:
+            write_scene_to_file(self.filepath, scene)
 
         return {'FINISHED'}
 
@@ -139,13 +154,11 @@ def menu_func_export(self, context):
 
 
 
-
-
 class ImportMSH(Operator, ImportHelper):
     """ Import an SWBF .msh file. """
 
     bl_idname = "swbf_msh.import"
-    bl_label = "Import SWBF .msh File"
+    bl_label = "Import SWBF .msh File(s)"
     filename_ext = ".msh"
 
     files: CollectionProperty(
@@ -160,8 +173,8 @@ class ImportMSH(Operator, ImportHelper):
     )
 
     animation_only: BoolProperty(
-        name="Import Animation Only",
-        description="Import animation and append as a new action to currently selected armature.",
+        name="Import Animation(s)",
+        description="Import on or more animations from the selected files and append each as a new Action to currently selected Armature.",
         default=False
     )
 
@@ -176,10 +189,10 @@ class ImportMSH(Operator, ImportHelper):
                 with open(filepath, 'rb') as input_file:              
                     scene = read_scene(input_file, self.animation_only)
                     
-                    if not self.animation_only:
-                        extract_scene(filepath, scene)
-                    else:
-                        extract_and_apply_anim(filepath, scene)
+                if not self.animation_only:
+                    extract_scene(filepath, scene)
+                else:
+                    extract_and_apply_anim(filepath, scene)
 
         return {'FINISHED'}
 

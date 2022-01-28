@@ -31,7 +31,6 @@
   + [Skinning Notes](#skinning-notes)
 - [Animation](#animation)
   + [Actions and Animations](#actions-and-animations)
-  + [Exporter Animation Options](#exporter-animation-options)
   + [Animation Notes](#animation-notes) 
 - [Appendices](#appendices)
   + [Appendix Detail Map Blending](#appendix-detail-map-blending)
@@ -70,15 +69,21 @@ Controls what to export from Blender.
 #### Apply Modifiers
 Whether to apply [Modifiers](https://docs.blender.org/manual/en/latest/modeling/modifiers/index.html) during export or not.
 
-#### Export As Skeleton
+#### Export Animation(s)
 
-Excludes geometry data from the exported .msh file, BUT ensures that the scene root has dummy geometry to satisfy the animation munger.
+|                        |                                                                        |
+| ---------------------- | ---------------------------------------------------------------------- |
+| None                  | Export the current active scene without animation data.                                       |
+| Active               | Export the current active scene with animation data extracted from the active Action on the scene's Armature.  To save space, the exporter will exclude geometry data from the resulting .msh file but will ensure the root object has some geometry and a material for munge compatibility.               |
+| Batch | Export the current active scene with animation data but produce a separate .msh file for and named after each Action in the scene.  Exported files will be placed in the selected directory.  If a file is selected, they will be placed in that file's directory.  This option essentially repeats the export behavior of "Active" for each Action in the current Scene.  Be sure to remove an Action from the scene if you do not want it exported!   |
 
-#### Export With Animation
 
-Convert the active Action on the scene's armature to an SWBF animation and include it in the exported file.
 
-(Please see [Exporter Animation Options](#exporter-animation-options) for more details on the previous two parameters)
+
+
+
+
+
 
 
 ### Export Failures
@@ -130,6 +135,12 @@ To solve this error consult the [Collision Primitives](#collision-primitives) se
 This error indicates that an object in your scene ends with what looks like an LOD suffix but that the suffix will not be recognized by modelmunge. This error is purely intended to help catch typos.
 
 To solve this error consult the [LOD Models](#lod-models) section and rename the problematic objects to use the correct LOD suffix.
+
+#### "RuntimeError: Could not find an Armature object from which to export animations!"
+This error is thrown when you intend to export one or more animations but no Armature is found among the objects to be exported.
+
+
+
 
 ### Export Behaviour to Know About
 
@@ -186,15 +197,18 @@ Can't imagine this coming up much (Maybe if you're model is just for collisions 
 #### Meshes without any materials will be assigned the first material in the .msh file.
 This shouldn't be relevant as any mesh that you haven't assigned a material to is likely to just be collision geometry or shadow geometry.
 
+#### Dummy frames for the scene root will be included when exporting an animation.
+If the scene root is not keyed in the Action(s) to be exported, dummy frames for the scene root with no translation or rotation will be added to the exported animation.
+
 ## Importer
 
-This plugin can import .msh files as well as .zaa_ and .zaabin files.  .msh files can be imported as models or animations.
+This plugin can import one or more .msh files as well as .zaabin files.  .msh files can be imported as models or animations.
 
 ### Import Properties
 
-#### Import Animation Only
+#### Import Animation(s)
 
-If you wish to import an .msh or zaa_/zaabin file as an animation, check this box.  This will only work so long as you have preselected an armature.  The imported animation will then be added to the armature as an Action. If an Action with the same name already exists, the importer will replace it.
+If you wish to import animation data from one or more .msh files or a single .zaabin file, check this box.  This will only work so long as you have preselected an Armature!  The imported animations will then be added to the Armature as Actions. If an Action with the same name already exists, the importer will replace it.
 
 ### Import Failures
 
@@ -640,17 +654,6 @@ When exporting an Action, all frames between and including the first and last *k
 If you have armature bones that are weighted to by a skinned object, but you do not wish for them to be exported as part of the animated skeleton, don't keyframe them.  The exported animation will only include bones that are explicitly keyframed at least once in the Action.
 
 
-### Exporter Animation Options
-
-#### ```Export As Skeleton```
-
-Excludes geometry data from the exported .msh file, since ```zenasset``` ignores it.  Skins and static meshes will be exported as nulls.  However, since ```zenasset``` does mandate the root object have some material and geometry data, this option will add in dummy geometry and a material to the .msh file's scene root. This isn't necessary for exporting animations, but is highly recommended to avoid writing unnecessary data and ensuring the root  object is acceptable to ```zenasset```.
-
-#### ```Export With Animation```
-
-If checked, the action currently attached to the scene's armature will be included in the exported msh file as an animation.  Dummy frames are also included for the scene root to satisfy ```zenasset```.  You do not have to explicitly animate the scene root!
-
-So, if you wish to export an animation to be munged, it is best to select both ```Export As Skeleton``` and ```Export With Animation.```
 
 ### Animation notes:  
 

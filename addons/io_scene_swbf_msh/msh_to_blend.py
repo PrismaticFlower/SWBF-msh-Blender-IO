@@ -35,6 +35,10 @@ def extract_and_apply_anim(filename : str, scene : Scene):
     else:
         head, tail = os.path.split(filename)
         anim_name = tail.split(".")[0]
+
+        if anim_name in bpy.data.actions:
+            bpy.data.actions.remove(bpy.data.actions[anim_name], do_unlink=True)
+
         action = bpy.data.actions.new(anim_name)
         action.use_fake_user = True
 
@@ -248,6 +252,7 @@ def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) 
 
 
         model_map[model.name] = new_obj
+        new_obj.name = model.name
 
         if model.parent:
             new_obj.parent = model_map[model.parent]

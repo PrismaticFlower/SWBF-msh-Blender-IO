@@ -19,7 +19,21 @@ from .msh_anim_gather import extract_anim
 
 
 
-def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_target: str, skel_only: bool, export_anim: bool) -> Scene:
+def set_scene_animation(scene : Scene, armature_obj : bpy.types.Object):
+
+    if not scene or not armature_obj:
+        return
+
+    root = scene.models[0]
+    scene.animation = extract_anim(armature_obj, root.name)
+
+
+
+
+
+
+
+def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_target: str, skel_only: bool) -> Tuple[Scene, bpy.types.Object]:
     """ Create a msh Scene from the active Blender scene. """
 
     scene = Scene()
@@ -47,17 +61,11 @@ def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_t
 
     root = scene.models[0]
 
-    if export_anim:
-        if armature_obj is not None:
-            scene.animation = extract_anim(armature_obj, root.name)
-        else:
-            raise Exception("Export Error: Could not find an armature object from which to export an animation!")
-
-    if skel_only and root.model_type == ModelType.NULL:
+    if skel_only and (root.model_type == ModelType.NULL or root.model_type == ModelType.BONE):
         # For ZenAsset
         inject_dummy_data(root)
 
-    return scene
+    return scene, armature_obj
 
 
 def create_scene_aabb(scene: Scene) -> SceneAABB:

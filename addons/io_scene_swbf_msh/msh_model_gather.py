@@ -399,7 +399,7 @@ def expand_armature(armature: bpy.types.Object) -> List[Model]:
         #   set model parent to SKIN object if there is one
         #   set model parent to armature parent if there is one
         else:
-            for child_obj in armature.children:
+            for child_obj in armature.original.children:
                 if child_obj.vertex_groups and not get_is_model_hidden(child_obj) and not child_obj.parent_bone:
                     model.parent = child_obj.name
                     break
