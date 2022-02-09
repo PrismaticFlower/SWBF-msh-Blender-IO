@@ -55,7 +55,7 @@ if "bpy" in locals():
 import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 from bpy.props import BoolProperty, EnumProperty, CollectionProperty
-from bpy.types import Operator
+from bpy.types import Operator, Menu
 from .msh_scene_utilities import create_scene, set_scene_animation
 from .msh_scene_save import save_scene
 from .msh_scene_read import read_scene
@@ -202,6 +202,63 @@ def menu_func_import(self, context):
 
 
 
+class FillSWBFMaterialProperties(bpy.types.Operator):
+    bl_idname = "swbf_msh.fill_mat_props"
+    bl_label = "Fill SWBF Material Properties"
+    bl_description = ("Fill in SWBF properties of all materials used by selected objects.\n"
+                "Only considers materials that use nodes.\n" 
+                "Please see 'Materials Operators' in the docs for more details.")
+
+    def execute(self, context):
+
+        slots = sum([list(ob.material_slots) for ob in bpy.context.selected_objects if ob.type == 'MESH'],[])
+        mats = [slot.material for slot in slots if (slot.material and slot.material.node_tree)]
+
+        for mat in mats:
+            try:
+                for BSDF_node in [n for n in mat.node_tree.nodes if n.type == 'BSDF_PRINCIPLED']:
+                    base_col = BSDF_node.inputs['Base Color'] 
+
+                    for link in base_col.links :
+                        link_node = link.from_node
+
+                        if link_node.type != 'TEX_IMAGE':
+                            continue
+
+                        tex_name = link_node.image.name
+
+                        i = tex_name.find(".tga")
+                        
+                        # Get rid of trailing number in case one is present
+                        if i > 0:
+                            tex_name = tex_name[0:i+4]
+
+                        mat.swbf_msh_mat.rendertype = 'NORMAL_BF2'
+                        mat.swbf_msh_mat.diffuse_map = tex_name 
+                        break 
+            except:
+                # Many chances for null ref exceptions. None if user reads doc section...
+                pass  
+
+        return {'FINISHED'}
+
+
+class VIEW3D_MT_SWBF(bpy.types.Menu):
+    bl_label = "SWBF"
+
+    def draw(self, _context):
+        layout = self.layout
+        layout.operator("swbf_msh.fill_mat_props", text="Fill SWBF Material Properties")
+
+
+def draw_matfill_menu(self, context):
+    layout = self.layout
+    layout.separator()
+    layout.menu("VIEW3D_MT_SWBF")
+
+
+
+
 def register():
     bpy.utils.register_class(CollisionPrimitiveProperties)
 
@@ -221,6 +278,10 @@ def register():
     bpy.types.Material.swbf_msh_mat = bpy.props.PointerProperty(type=MaterialProperties)
     bpy.types.Armature.swbf_msh_skel = bpy.props.CollectionProperty(type=SkeletonProperties)
 
+    bpy.utils.register_class(FillSWBFMaterialProperties)
+    bpy.utils.register_class(VIEW3D_MT_SWBF)
+    bpy.types.VIEW3D_MT_object_context_menu.append(draw_matfill_menu)
+
 
 
 def unregister():
@@ -237,6 +298,11 @@ def unregister():
 
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+
+    bpy.utils.unregister_class(FillSWBFMaterialProperties)
+
+    bpy.utils.unregister_class(VIEW3D_MT_SWBF)
+    bpy.types.VIEW3D_MT_object_context_menu.remove(draw_matfill_menu)
 
 
 if __name__ == "__main__":
