@@ -207,7 +207,7 @@ class FillSWBFMaterialProperties(bpy.types.Operator):
     bl_label = "Fill SWBF Material Properties"
     bl_description = ("Fill in SWBF properties of all materials used by selected objects.\n"
                 "Only considers materials that use nodes.\n" 
-                "Please see 'Materials Operators' in the docs for more details.")
+                "Please see 'Materials > Materials Operators' in the docs for more details.")
 
     def execute(self, context):
 

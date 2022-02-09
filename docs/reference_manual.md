@@ -24,6 +24,7 @@
   + [Materials.Flags](#materialsflags)
   + [Materials.Data](#materialsdata)
   + [Materials.Texture Maps](#materialstexture-maps)
+  + [Materials Operators](#materials-operators)
 - [Skeletons and Skinning](#skeletons-and-skinning)
   + [XSI vs Blender](#xsi-vs-blender)
   + [Example Skin Hierarchy](#example-skin-hierarchy)
@@ -573,6 +574,14 @@ Environment map for the material. Used to provide static reflections for the mod
 
 #### Materials.Texture Maps.Distortion Map
 Distortion maps control how Refractive materials distort the scene behind them. Should be a Normal Map with '-forceformat v8u8' in it's '.tga.option' file. See Appendix .tga.option Files.
+
+
+### Materials Operators
+
+#### Fill SWBF Properties
+Fills in SWBF properties of each material used by a currently selected object.  This operator will only work with materials that have ```Use Nodes``` enabled and will just fill in the Diffuse Map property with the name of the image used by the material's Principled BSDF node.  
+
+It is used by selecting the relevant objects and choosing `SWBF` > `Fill SWBF Material Properties` in the `Object Context` (right-click) menu ![Menu Entry](images/mat_fill_op.png)
 
 
 
