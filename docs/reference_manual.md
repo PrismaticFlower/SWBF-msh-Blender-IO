@@ -581,7 +581,9 @@ Distortion maps control how Refractive materials distort the scene behind them. 
 #### Fill SWBF Properties
 Fills in SWBF properties of each material used by a currently selected object.  This operator will only work with materials that have ```Use Nodes``` enabled and will just fill in the Diffuse Map property with the name of the image used by the material's Principled BSDF node.  
 
-It is used by selecting the relevant objects and choosing `SWBF` > `Fill SWBF Material Properties` in the `Object Context` (right-click) menu ![Menu Entry](images/mat_fill_op.png)
+It is used by selecting the relevant objects and choosing `SWBF` > `Fill SWBF Material Properties` in the `Object Context` menu:
+<img src="https://raw.githubusercontent.com/SleepKiller/SWBF-msh-Blender-IO/master/docs/images/mat_fill_op.png" width="400" height="400"/>
+
 
 
 
