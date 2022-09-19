@@ -13,6 +13,7 @@ from .msh_material_to_blend import *
 from .msh_model import *
 from .msh_skeleton_utilities import *
 from .msh_model_gather import get_is_model_hidden
+from .msh_mesh_to_blend import model_to_mesh_object
 
 
 from .crc import *
@@ -118,132 +119,13 @@ def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) 
     sorted_models : List[Model] = sort_by_parent(scene.models)
 
     for model in sorted_models:
+        
         new_obj = None
-
 
         if model.model_type == ModelType.STATIC or model.model_type == ModelType.SKIN or model.model_type == ModelType.SHADOWVOLUME:  
 
-            new_mesh = bpy.data.meshes.new(model.name)
-            verts = []
-            faces = []
-            offset = 0
+            new_obj = model_to_mesh_object(model, scene, materials_map)
 
-            full_texcoords = []
-
-            weights_offsets = {}
-
-            face_range_to_material_index = []
-
-            materials_to_use = []
-            segment_index = 0
-
-            if model.geometry:
-
-                def validate_segment(segment : GeometrySegment):
-                    if not segment.positions:
-                        return False
-                    if not segment.triangles and not segment.triangle_strips and not segment.polygons:
-                        return False
-                    if not segment.material_name:
-                        return False
-                    return True
-
-
-                for seg in model.geometry:
-
-                    if not validate_segment(seg):
-                        continue
-
-                    verts += [tuple(convert_vector_space(v)) for v in seg.positions]
-
-                    materials_to_use.append(seg.material_name)
-
-                    if seg.weights:
-                        weights_offsets[offset] = seg.weights
-
-                    if seg.texcoords:
-                        full_texcoords += seg.texcoords
-                    else:
-                        full_texcoords += [(0.0,0.0) for _ in range(len(seg.positions))]
-
-                    face_range_lower = len(faces)
-
-                    if seg.triangles:
-                        faces += [tuple([ind + offset for ind in tri]) for tri in seg.triangles]
-                    
-                    elif seg.triangle_strips:
-                        for strip in seg.triangle_strips:
-                            for i in range(len(strip) - 2):
-                                if i % 2 == 0:
-                                    face = tuple([offset + strip[j] for j in [i,i+1,i+2]])
-                                else:
-                                    face = tuple([offset + strip[j] for j in [i,i+2,i+1]])                                    
-                                faces.append(face)
-                    
-                    elif seg.polygons:
-                        faces += [tuple([ind + offset for ind in polygon]) for polygon in seg.polygons]
-
-
-                    face_range_upper = len(faces)
-                    face_range_to_material_index.append((face_range_lower, face_range_upper, segment_index))
-
-                    offset += len(seg.positions)
-
-                    segment_index += 1
-
-            new_mesh.from_pydata(verts, [], faces)
-            new_mesh.update()
-            new_mesh.validate()
-
-
-            # If tex coords are present, add material and UV data
-            if full_texcoords:
-
-                edit_mesh = bmesh.new()
-                edit_mesh.from_mesh(new_mesh)
-
-                uvlayer = edit_mesh.loops.layers.uv.verify()
-
-                for edit_mesh_face in edit_mesh.faces:
-                    face_index = edit_mesh_face.index
-                    mesh_face = faces[face_index]
-
-                    for frL, frU, ind in face_range_to_material_index:
-                        if face_index >= frL and face_index < frU:
-                            edit_mesh_face.material_index = ind
-
-                    for i,loop in enumerate(edit_mesh_face.loops):
-                        texcoord = full_texcoords[mesh_face[i]]
-                        loop[uvlayer].uv = tuple([texcoord[0], texcoord[1]])
-
-                edit_mesh.to_mesh(new_mesh)
-                edit_mesh.free()
-
-            
-            new_obj = bpy.data.objects.new(new_mesh.name, new_mesh)
-
-
-            vertex_groups_indicies = {}
-
-            for offset in weights_offsets:
-                for i, weight_set in enumerate(weights_offsets[offset]):
-                    for weight in weight_set:
-                        index = weight.bone
-
-                        if index not in vertex_groups_indicies:
-                            model_name = scene.models[index].name
-                            vertex_groups_indicies[index] = new_obj.vertex_groups.new(name=model_name)
-
-                        vertex_groups_indicies[index].add([offset + i], weight.weight, 'ADD')
-
-
-            '''
-            Assign Material slots
-            '''
-            for material_name in materials_to_use:
-                material = materials_map[material_name]
-                new_obj.data.materials.append(material)
-        
         else:
 
             new_obj = bpy.data.objects.new(model.name, None)
