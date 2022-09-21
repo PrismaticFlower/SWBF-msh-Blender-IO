@@ -9,6 +9,10 @@ from .msh_material_ui_strings import *
 from .msh_material_utilities import _REVERSE_RENDERTYPES_MAPPING
 
 
+from .material_props_to_nodes_op import GenerateMaterialFromSWBFProperties
+
+
+
 UI_MATERIAL_RENDERTYPES = (
     ('NORMAL_BF2', "00 Standard (SWBF2)", UI_RENDERTYPE_NORMAL_BF2_DESC),
     ('SCROLLING_BF2', "03 Scrolling (SWBF2)", UI_RENDERTYPE_SCROLLING_BF2_DESC),
@@ -167,7 +171,8 @@ class MaterialProperties(PropertyGroup):
                                 description="The basic diffuse map for the material. The alpha channel "
                                             "is either the Transparency Map, Glow Map or Gloss Map, "
                                             "depending on the selected rendertype and flags.",
-                                default="white.tga")
+                                default="white.tga",
+                                subtype='FILE_PATH')
 
     detail_map: StringProperty(name="Detail Map",
                                description="Detail maps allow you to add in 'detail' to the diffuse "
@@ -284,4 +289,8 @@ class MaterialPropertiesPanel(bpy.types.Panel):
             layout.prop(material_props, "texture_1")
             layout.prop(material_props, "texture_2")
             layout.prop(material_props, "texture_3")
+
+
+        op_props = layout.operator("swbf_msh.generate_material", text="Generate Nodes")
+        op_props.material_name = context.material.name
 

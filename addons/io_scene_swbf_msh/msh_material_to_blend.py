@@ -33,8 +33,38 @@ def find_texture_path(folder_path : str, name : str) -> str:
     return ""
 
 
+def swbf_material_to_blend(material_name : str, material : Material, folder_path : str) -> bpy.types.Material:
 
-def fill_material_props(material : Material, material_properties):
+    new_mat = bpy.data.materials.new(name=material_name)
+    new_mat.use_nodes = True
+    bsdf = new_mat.node_tree.nodes["Principled BSDF"]
+
+    diffuse_texture_path = find_texture_path(folder_path, material.texture0)
+
+    if diffuse_texture_path:
+        texImage = new_mat.node_tree.nodes.new('ShaderNodeTexImage')
+        texImage.image = bpy.data.images.load(diffuse_texture_path)
+        texImage.image.alpha_mode = 'CHANNEL_PACKED'
+        new_mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color']) 
+
+        bsdf.inputs["Roughness"].default_value = 1.0
+        bsdf.inputs["Specular"].default_value = 0.0
+
+        if material.flags & MaterialFlags.HARDEDGED_TRANSPARENCY:
+            new_mat.blend_method = "CLIP"
+            new_mat.node_tree.links.new(bsdf.inputs['Alpha'], texImage.outputs['Alpha']) 
+
+
+        new_mat.use_backface_culling = not bool(material.flags & MaterialFlags.DOUBLESIDED)
+
+
+    fill_material_props(material, new_mat.swbf_msh_mat, folder_path)  
+
+    return new_mat    
+
+
+
+def fill_material_props(material : Material, material_properties, folder_path):
     """ Fills MaterialProperties from Material instance """
 
     if material_properties is None or material is None:
@@ -47,7 +77,7 @@ def fill_material_props(material : Material, material_properties):
     _fill_material_props_rendertype(material, material_properties)
     _fill_material_props_flags(material, material_properties)
     _fill_material_props_data(material, material_properties)
-    _fill_material_props_texture_maps(material, material_properties)
+    _fill_material_props_texture_maps(material, material_properties, folder_path)
 
 
 
@@ -102,15 +132,17 @@ def _fill_material_props_data(material, material_properties):
     material_properties.detail_map_tiling_v = material.data[1]
 
 
-def _fill_material_props_texture_maps(material, material_properties):
+def _fill_material_props_texture_maps(material, material_properties, folder_path):
 
-        material_properties.texture_0 = material.texture0
-        material_properties.texture_1 = material.texture1
-        material_properties.texture_2 = material.texture2
-        material_properties.texture_3 = material.texture3
+    t0path = find_texture_path(folder_path, material.texture0)        
 
-        material_properties.diffuse_map = material.texture0
-        material_properties.distortion_map = material.texture1
-        material_properties.normal_map = material.texture1
-        material_properties.detail_map = material.texture2
-        material_properties.environment_map = material.texture3
+    material_properties.texture_0 = t0path if t0path else material.texture0
+    material_properties.texture_1 = material.texture1
+    material_properties.texture_2 = material.texture2
+    material_properties.texture_3 = material.texture3
+
+    material_properties.diffuse_map = t0path
+    material_properties.distortion_map = material.texture1
+    material_properties.normal_map = material.texture1
+    material_properties.detail_map = material.texture2
+    material_properties.environment_map = material.texture3

@@ -64,6 +64,7 @@ from .msh_skeleton_properties import *
 from .msh_collision_prim_properties import *
 from .msh_to_blend import *
 from .zaa_to_blend import *
+from .material_props_to_nodes_op import GenerateMaterialFromSWBFProperties
 
 
 class ExportMSH(Operator, ExportHelper):
@@ -282,6 +283,8 @@ def register():
     bpy.utils.register_class(VIEW3D_MT_SWBF)
     bpy.types.VIEW3D_MT_object_context_menu.append(draw_matfill_menu)
 
+    bpy.utils.register_class(GenerateMaterialFromSWBFProperties)
+
 
 
 def unregister():
@@ -303,6 +306,9 @@ def unregister():
 
     bpy.utils.unregister_class(VIEW3D_MT_SWBF)
     bpy.types.VIEW3D_MT_object_context_menu.remove(draw_matfill_menu)
+
+    bpy.utils.unregister_class(GenerateMaterialFromSWBFProperties)
+
 
 
 if __name__ == "__main__":

@@ -7,6 +7,8 @@ from .msh_material import *
 
 from .msh_material_utilities import _RENDERTYPES_MAPPING
 
+import os
+
 def gather_materials() -> Dict[str, Material]:
     """ Gathers the Blender materials and returns them as
         a dictionary of strings and Material objects. """
@@ -35,16 +37,16 @@ def read_material(blender_material: bpy.types.Material) -> Material:
     result.data = _read_material_props_data(props)
 
     if "UNSUPPORTED" not in props.rendertype:
-        result.texture0 = props.diffuse_map
+        result.texture0 = os.path.basename(props.diffuse_map)
         result.texture1 = _read_normal_map_or_distortion_map_texture(props)
         result.texture2 = _read_detail_texture(props)
         result.texture3 = _read_envmap_texture(props)
     
     else:
-        result.texture0 = props.texture_0
-        result.texture1 = props.texture_1
-        result.texture2 = props.texture_2
-        result.texture3 = props.texture_3
+        result.texture0 = os.path.basename(props.texture_0)
+        result.texture1 = os.path.basename(props.texture_1)
+        result.texture2 = os.path.basename(props.texture_2)
+        result.texture3 = os.path.basename(props.texture_3)
 
     return result
 
@@ -96,11 +98,13 @@ def _read_material_props_data(props) -> Tuple[int, int]:
 
     return (props.detail_map_tiling_u, props.detail_map_tiling_v)
 
+
+
 def _read_normal_map_or_distortion_map_texture(props) -> str:
     if "REFRACTION" in props.rendertype:
-        return props.distortion_map
+        return os.path.basename(props.distortion_map)
     if "NORMALMAPPED" in props.rendertype:
-        return props.normal_map
+        return os.path.basename(props.normal_map)
 
     return ""
 
@@ -108,10 +112,10 @@ def _read_detail_texture(props) -> str:
     if "REFRACTION" in props.rendertype:
         return ""
 
-    return props.detail_map
+    return os.path.basename(props.detail_map)
 
 def _read_envmap_texture(props) -> str:
     if "ENVMAPPED" not in props.rendertype:
         return ""
 
-    return props.environment_map
+    return os.path.basename(props.environment_map)

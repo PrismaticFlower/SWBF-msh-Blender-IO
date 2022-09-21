@@ -159,20 +159,7 @@ def extract_materials(folder_path: str, scene: Scene) -> Dict[str, bpy.types.Mat
 
     for material_name, material in scene.materials.items():
 
-        new_mat = bpy.data.materials.new(name=material_name)
-        new_mat.use_nodes = True
-        bsdf = new_mat.node_tree.nodes["Principled BSDF"]
-
-        diffuse_texture_path = find_texture_path(folder_path, material.texture0)
-
-        if diffuse_texture_path:
-            texImage = new_mat.node_tree.nodes.new('ShaderNodeTexImage')
-            texImage.image = bpy.data.images.load(diffuse_texture_path)
-            new_mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])  
-
-        fill_material_props(material, new_mat.swbf_msh_mat)      
-
-        extracted_materials[material_name] = new_mat
+        extracted_materials[material_name] = swbf_material_to_blend(material_name, material, folder_path)
 
     return extracted_materials
 
