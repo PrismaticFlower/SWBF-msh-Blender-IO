@@ -58,113 +58,113 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
     polygon_material_indices = []
 
 
-    for segment in model.geometry:
+    if model.geometry:
 
-        if not validate_segment_geometry(segment):
-            continue
+        for segment in model.geometry:
 
-        blender_mesh.materials.append(materials_map[segment.material_name])
+            if not validate_segment_geometry(segment):
+                continue
 
-        vertex_positions += [tuple(convert_vector_space(p)) for p in segment.positions]
+            blender_mesh.materials.append(materials_map[segment.material_name])
 
-        if segment.texcoords:
-            vertex_uvs += [tuple(texcoord) for texcoord in segment.texcoords]
-        else:
-            vertex_uvs += [(0.0,0.0) for _ in range(len(segment.positions))]
+            vertex_positions += [tuple(convert_vector_space(p)) for p in segment.positions]
 
-        if segment.normals:
-            vertex_normals += [tuple(convert_vector_space(n)) for n in segment.normals]
+            if segment.texcoords:
+                vertex_uvs += [tuple(texcoord) for texcoord in segment.texcoords]
+            else:
+                vertex_uvs += [(0.0,0.0) for _ in range(len(segment.positions))]
 
-        if segment.weights:
-            vertex_weights_offsets[polygon_index_offset] = segment.weights
+            if segment.normals:
+                vertex_normals += [tuple(convert_vector_space(n)) for n in segment.normals]
 
-
-        segment_polygons = []
-
-        if segment.triangles:
-            segment_polygons = [tuple([ind + polygon_index_offset for ind in tri]) for tri in segment.triangles]
-        elif segment.triangle_strips:
-            for strip in segment.triangle_strips:
-                for i in range(len(strip) - 2):
-                    strip_tri = tuple([polygon_index_offset + strip[j] for j in range(i,i+3)])
-                    segment_polygons.append(strip_tri)
-        elif segment.polygons:
-            segment_polygons = [tuple([ind + polygon_index_offset for ind in polygon]) for polygon in segment.polygons]
-
-        polygon_index_offset += len(segment.positions)
-
-        polygons += segment_polygons
-
-        polygon_material_indices += [current_material_index for _ in segment_polygons]
-        current_material_index += 1
+            if segment.weights:
+                vertex_weights_offsets[polygon_index_offset] = segment.weights
 
 
+            segment_polygons = []
 
-    '''
-    Start building the blender mesh
-    '''
+            if segment.triangles:
+                segment_polygons = [tuple([ind + polygon_index_offset for ind in tri]) for tri in segment.triangles]
+            elif segment.triangle_strips:
+                for strip in segment.triangle_strips:
+                    for i in range(len(strip) - 2):
+                        strip_tri = tuple([polygon_index_offset + strip[j] for j in range(i,i+3)])
+                        segment_polygons.append(strip_tri)
+            elif segment.polygons:
+                segment_polygons = [tuple([ind + polygon_index_offset for ind in polygon]) for polygon in segment.polygons]
 
-    # VERTICES
+            polygon_index_offset += len(segment.positions)
 
-    # This is all we have to do for vertices, other attributes are done per-loop
-    blender_mesh.vertices.add(len(vertex_positions))
-    blender_mesh.vertices.foreach_set("co", [component for vertex_position in vertex_positions for component in vertex_position])
+            polygons += segment_polygons
 
+            polygon_material_indices += [current_material_index for _ in segment_polygons]
+            current_material_index += 1
 
-    # LOOPS 
+        '''
+        Start building the blender mesh
+        '''
 
-    flat_indices = [index for polygon in polygons for index in polygon]
+        # VERTICES
 
-    blender_mesh.loops.add(len(flat_indices))
-
-    # Position indices
-    blender_mesh.loops.foreach_set("vertex_index", flat_indices)
-
-    # Normals
-    blender_mesh.create_normals_split()
-    blender_mesh.loops.foreach_set("normal", [component for i in flat_indices for component in vertex_normals[i]])
-
-    # UVs
-    blender_mesh.uv_layers.new(do_init=False)
-    blender_mesh.uv_layers[0].data.foreach_set("uv", [component for i in flat_indices for component in vertex_uvs[i]])
-
-
-
-    # POLYGONS/FACES
-
-    blender_mesh.polygons.add(len(polygons))
-
-    # Indices of starting loop for each polygon
-    polygon_loop_start_indices = []
-    current_polygon_start_index = 0
-
-    # Number of loops in this polygon.  Polygon i will use
-    # loops from polygon_loop_start_indices[i] to 
-    # polygon_loop_start_indices[i] + polygon_loop_totals[i]
-    polygon_loop_totals = []
-
-    for polygon in polygons:
-        polygon_loop_start_indices.append(current_polygon_start_index)
-
-        current_polygon_length = len(polygon)
-        current_polygon_start_index += current_polygon_length
-
-        polygon_loop_totals.append(current_polygon_length)
-
-    blender_mesh.polygons.foreach_set("loop_start", polygon_loop_start_indices)
-    blender_mesh.polygons.foreach_set("loop_total", polygon_loop_totals)
-    blender_mesh.polygons.foreach_set("material_index", polygon_material_indices)
-    blender_mesh.polygons.foreach_set("use_smooth", [True for _ in polygons])
-
-    blender_mesh.validate(clean_customdata=False) 
-    blender_mesh.update()
+        # This is all we have to do for vertices, other attributes are done per-loop
+        blender_mesh.vertices.add(len(vertex_positions))
+        blender_mesh.vertices.foreach_set("co", [component for vertex_position in vertex_positions for component in vertex_position])
 
 
-    # Reset custom normals after calling update/validate
-    reset_normals = [0.0] * (len(blender_mesh.loops) * 3)
-    blender_mesh.loops.foreach_get("normal", reset_normals)
-    blender_mesh.normals_split_custom_set(tuple(zip(*(iter(reset_normals),) * 3)))
-    blender_mesh.use_auto_smooth = True
+        # LOOPS 
+
+        flat_indices = [index for polygon in polygons for index in polygon]
+
+        blender_mesh.loops.add(len(flat_indices))
+
+        # Position indices
+        blender_mesh.loops.foreach_set("vertex_index", flat_indices)
+
+        # Normals
+        blender_mesh.create_normals_split()
+        blender_mesh.loops.foreach_set("normal", [component for i in flat_indices for component in vertex_normals[i]])
+
+        # UVs
+        blender_mesh.uv_layers.new(do_init=False)
+        blender_mesh.uv_layers[0].data.foreach_set("uv", [component for i in flat_indices for component in vertex_uvs[i]])
+
+
+
+        # POLYGONS/FACES
+
+        blender_mesh.polygons.add(len(polygons))
+
+        # Indices of starting loop for each polygon
+        polygon_loop_start_indices = []
+        current_polygon_start_index = 0
+
+        # Number of loops in this polygon.  Polygon i will use
+        # loops from polygon_loop_start_indices[i] to 
+        # polygon_loop_start_indices[i] + polygon_loop_totals[i]
+        polygon_loop_totals = []
+
+        for polygon in polygons:
+            polygon_loop_start_indices.append(current_polygon_start_index)
+
+            current_polygon_length = len(polygon)
+            current_polygon_start_index += current_polygon_length
+
+            polygon_loop_totals.append(current_polygon_length)
+
+        blender_mesh.polygons.foreach_set("loop_start", polygon_loop_start_indices)
+        blender_mesh.polygons.foreach_set("loop_total", polygon_loop_totals)
+        blender_mesh.polygons.foreach_set("material_index", polygon_material_indices)
+        blender_mesh.polygons.foreach_set("use_smooth", [True for _ in polygons])
+
+        blender_mesh.validate(clean_customdata=False) 
+        blender_mesh.update()
+
+
+        # Reset custom normals after calling update/validate
+        reset_normals = [0.0] * (len(blender_mesh.loops) * 3)
+        blender_mesh.loops.foreach_get("normal", reset_normals)
+        blender_mesh.normals_split_custom_set(tuple(zip(*(iter(reset_normals),) * 3)))
+        blender_mesh.use_auto_smooth = True
 
 
     blender_mesh_object = bpy.data.objects.new(model.name, blender_mesh)
@@ -187,6 +187,14 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
 
 
     return blender_mesh_object
+
+
+
+
+
+
+
+
 
 
 
