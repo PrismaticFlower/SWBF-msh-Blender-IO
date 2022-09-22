@@ -23,11 +23,18 @@ from bpy.types import Operator, Menu
 class GenerateMaterialFromSWBFProperties(bpy.types.Operator):
     
     bl_idname = "swbf_msh.generate_material"
-    bl_label = "Generate SWBF Material"
-    bl_description = "Generate a Blender material from SWBF material properties."
+    bl_label = "Generate Nodes"
+    bl_description= """Generate Cycles shader nodes from SWBF material properties.
+
+The nodes generated are meant to give one a general idea
+of how the material would look ingame.  They cannot 
+to provide an exact emulation"""
 
     
-    material_name: StringProperty(name = "Material Name", description = "Name of material whose SWBF properties nodes will be generated from.")
+    material_name: StringProperty(
+        name = "Material Name", 
+        description = "Name of material whose SWBF properties the generated nodes will emulate."
+    )
     
 
     def execute(self, context):
