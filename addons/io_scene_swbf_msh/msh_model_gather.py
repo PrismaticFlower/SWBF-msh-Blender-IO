@@ -116,8 +116,8 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[Geomet
     """ Creates a list of GeometrySegment objects from a Blender mesh.
         Does NOT create triangle strips in the GeometrySegment however. """
 
-    if mesh.has_custom_normals:
-        mesh.calc_normals_split()
+    # We have to do this for all meshes to account for sharp edges
+    mesh.calc_normals_split()
 
     mesh.validate_material_indices()
     mesh.calc_loop_triangles()
@@ -140,7 +140,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[Geomet
     for segment, material in zip(segments, mesh.materials):
         segment.material_name = material.name
 
-    def add_vertex(material_index: int, vertex_index: int, loop_index: int, use_smooth_normal: bool, face_normal: Vector) -> int:
+    def add_vertex(material_index: int, vertex_index: int, loop_index: int) -> int:
         nonlocal segments, vertex_remap
 
         vertex_cache_miss_index = -1
@@ -148,15 +148,8 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[Geomet
         cache = vertex_cache[material_index]
         remap = vertex_remap[material_index]
 
-        vertex_normal: Vector
-
-        if use_smooth_normal or mesh.use_auto_smooth:
-            if mesh.has_custom_normals:
-                vertex_normal = Vector( mesh.loops[loop_index].normal )
-            else:
-                vertex_normal = Vector( mesh.vertices[vertex_index].normal )
-        else:
-            vertex_normal = Vector(face_normal)
+        # always use loop normals since we always calculate a custom split set        
+        vertex_normal = Vector( mesh.loops[loop_index].normal )
 
         def get_cache_vertex():
             yield mesh.vertices[vertex_index].co.x
@@ -213,9 +206,9 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[Geomet
     for tri in mesh.loop_triangles:
         polygons[tri.material_index].add(tri.polygon_index)
         segments[tri.material_index].triangles.append([
-            add_vertex(tri.material_index, tri.vertices[0], tri.loops[0], tri.use_smooth, tri.normal),
-            add_vertex(tri.material_index, tri.vertices[1], tri.loops[1], tri.use_smooth, tri.normal),
-            add_vertex(tri.material_index, tri.vertices[2], tri.loops[2], tri.use_smooth, tri.normal)])
+            add_vertex(tri.material_index, tri.vertices[0], tri.loops[0]),
+            add_vertex(tri.material_index, tri.vertices[1], tri.loops[1]),
+            add_vertex(tri.material_index, tri.vertices[2], tri.loops[2])])
 
     for segment, remap, polys in zip(segments, vertex_remap, polygons):
         for poly_index in polys:
