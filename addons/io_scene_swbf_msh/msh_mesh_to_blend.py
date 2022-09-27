@@ -41,10 +41,9 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
     vertex_uvs = []
     vertex_normals = []
 
-
+    # Keeps track of which vertices each group of weights affects
+    # i.e. maps offset of vertices -> weights that affect them
     vertex_weights_offsets = {}
-
-
 
     # Since polygons in a msh segment index into the segment's verts,
     # we must keep an offset to index them into the verts of the whole mesh
@@ -187,16 +186,4 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
 
 
     return blender_mesh_object
-
-
-
-
-
-
-
-
-
-
-
-
 

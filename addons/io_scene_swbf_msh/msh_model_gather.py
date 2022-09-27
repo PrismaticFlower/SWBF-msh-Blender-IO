@@ -280,10 +280,7 @@ def get_collision_primitive(obj: bpy.types.Object) -> CollisionPrimitive:
 
         primitive.radius = max(obj.dimensions[0], obj.dimensions[1], obj.dimensions[2]) * 0.5
     elif primitive.shape == CollisionPrimitiveShape.CYLINDER:
-        if not math.isclose(obj.dimensions[0], obj.dimensions[1], rel_tol=0.001):
-            raise RuntimeError(f"Object '{obj.name}' is being used as a cylinder collision "
-                               f"primitive but it's X and Y dimensions are not uniform!")
-        primitive.radius = obj.dimensions[0] * 0.5
+        primitive.radius = max(obj.dimensions[0], obj.dimensions[1]) * 0.5
         primitive.height = obj.dimensions[2]
     elif primitive.shape == CollisionPrimitiveShape.BOX:
         primitive.radius = obj.dimensions[0] * 0.5
