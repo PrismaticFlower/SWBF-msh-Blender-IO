@@ -60,6 +60,7 @@ def required_skeleton_to_armature(required_skeleton : List[Model], model_map : D
 
     armature = bpy.data.armatures.new("skeleton")
     armature_obj = bpy.data.objects.new("skeleton", armature)
+    armature_obj.matrix_world = Matrix.Identity(4)
     bpy.context.view_layer.active_layer_collection.collection.objects.link(armature_obj)
 
  
@@ -83,6 +84,7 @@ def required_skeleton_to_armature(required_skeleton : List[Model], model_map : D
         '''
         bone_obj = model_map[bone.name]
 
+        # TODO: This will lead to mistranslated bones when armature is reparented!
         edit_bone.matrix = bone_obj.matrix_world
         edit_bone.tail = bone_obj.matrix_world @ Vector((0.0,1.0,0.0))
 
@@ -208,4 +210,5 @@ def extract_required_skeleton(scene: Scene) -> List[Model]:
                 
                 #stacked_transform = model_transform_to_matrix(curr_ancestor.transform) @ stacked_transform
 
-    return required_skeleton_models              
+    return required_skeleton_models    
+

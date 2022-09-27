@@ -178,6 +178,8 @@ def extract_materials(folder_path: str, scene: Scene) -> Dict[str, bpy.types.Mat
 
 
 
+
+
 def extract_scene(filepath: str, scene: Scene):
 
     folder = os.path.join(os.path.dirname(filepath),"")
@@ -225,8 +227,10 @@ def extract_scene(filepath: str, scene: Scene):
 
                 has_skin = True
 
+                worldmat = curr_obj.matrix_world
                 curr_obj.parent = armature
                 curr_obj.parent_type = 'ARMATURE'
+                curr_obj.matrix_world = worldmat
 
             # Parent the object to a bone if necessary
             else:
@@ -262,7 +266,11 @@ def extract_scene(filepath: str, scene: Scene):
 
         # Now we reparent the armature to the node (armature_reparent_obj) we just found
         if armature_reparent_obj is not None and armature.name != armature_reparent_obj.name:
+            world_tx = armature.matrix_world
             armature.parent = armature_reparent_obj
+            armature.matrix_basis = Matrix()
+            armature.matrix_parent_inverse = Matrix()
+            armature.matrix_world = Matrix.Identity(4)
 
 
         # If an bone exists in the armature, delete its 
@@ -272,6 +280,8 @@ def extract_scene(filepath: str, scene: Scene):
             if model_to_remove:
                 bpy.data.objects.remove(model_to_remove, do_unlink=True)
                 model_map.pop(bone.name)
+
+        armature.matrix_world = Matrix.Identity(4)        
     
 
     # Lastly, hide all that is hidden in the msh scene
@@ -280,3 +290,4 @@ def extract_scene(filepath: str, scene: Scene):
             obj = model_map[model.name]
             if get_is_model_hidden(obj) and len(obj.children) == 0:
                 obj.hide_set(True)
+
