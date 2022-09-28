@@ -9,7 +9,7 @@ from .msh_material_ui_strings import *
 from .msh_material_utilities import _REVERSE_RENDERTYPES_MAPPING
 
 
-from .material_props_to_nodes_op import GenerateMaterialFromSWBFProperties
+from .msh_material_operators import GenerateMaterialNodesFromSWBFProperties
 
 
 
@@ -177,21 +177,25 @@ class MaterialProperties(PropertyGroup):
     detail_map: StringProperty(name="Detail Map",
                                description="Detail maps allow you to add in 'detail' to the diffuse "
                                            "map at runtime. Or they can be used as fake ambient occlusion "
-                                           "maps or even wacky emissive maps. See docs for more details.")
+                                           "maps or even wacky emissive maps. See docs for more details.",
+                               subtype='FILE_PATH')
 
     normal_map: StringProperty(name="Normal Map",
                                description="Normal maps can provide added detail from lighting. "
                                            "If Specular is enabled the alpha channel will be "
-                                           "the Gloss Map.")
+                                           "the Gloss Map.",
+                               subtype='FILE_PATH')
 
     environment_map: StringProperty(name="Environment Map",
                                     description="Environment map for the material. Provides static "
-                                                "reflections around the surface. Must be a cubemap.")
+                                                "reflections around the surface. Must be a cubemap.",
+                                    subtype='FILE_PATH')
 
     distortion_map: StringProperty(name="Distortion Map",
                                    description="Distortion maps control how Refractive materials "
                                                "distort the scene behind them. Should be a normal map "
-                                               "with '-forceformat v8u8' in it's '.tga.option' file.")
+                                               "with '-forceformat v8u8' in it's '.tga.option' file.",
+                                   subtype='FILE_PATH')
 
     # Below props are for yet unsupported render types
     data_value_0: IntProperty(name="", description="First data value")
@@ -199,10 +203,10 @@ class MaterialProperties(PropertyGroup):
 
     rendertype_value: IntProperty(name="Rendertype Value", description="Raw number value of rendertype.", min=0, max=31)
 
-    texture_0: StringProperty(name="1", description="First texture slot")
-    texture_1: StringProperty(name="2", description="Second texture slot")
-    texture_2: StringProperty(name="3", description="Third texture slot")
-    texture_3: StringProperty(name="4", description="Fourth texture slot")
+    texture_0: StringProperty(name="1", description="First texture slot", subtype='FILE_PATH', default="white.tga")
+    texture_1: StringProperty(name="2", description="Second texture slot", subtype='FILE_PATH')
+    texture_2: StringProperty(name="3", description="Third texture slot", subtype='FILE_PATH')
+    texture_3: StringProperty(name="4", description="Fourth texture slot", subtype='FILE_PATH')
 
 
 class MaterialPropertiesPanel(bpy.types.Panel):
@@ -291,6 +295,6 @@ class MaterialPropertiesPanel(bpy.types.Panel):
             layout.prop(material_props, "texture_3")
 
 
-        op_props = layout.operator("swbf_msh.generate_material", text="Generate Nodes")
+        op_props = layout.operator("swbf_msh.generate_material_nodes", text="Generate Nodes")
         op_props.material_name = context.material.name
 
