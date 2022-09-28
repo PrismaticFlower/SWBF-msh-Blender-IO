@@ -85,9 +85,11 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
             if segment.triangles:
                 segment_polygons = [tuple([ind + polygon_index_offset for ind in tri]) for tri in segment.triangles]
             elif segment.triangle_strips:
+                winding = [0,1,2]
+                rwinding = [1,0,2]
                 for strip in segment.triangle_strips:
                     for i in range(len(strip) - 2):
-                        strip_tri = tuple([polygon_index_offset + strip[j] for j in range(i,i+3)])
+                        strip_tri = tuple([polygon_index_offset + strip[i+j] for j in (winding if i % 2 == 0 else rwinding)])
                         segment_polygons.append(strip_tri)
             elif segment.polygons:
                 segment_polygons = [tuple([ind + polygon_index_offset for ind in polygon]) for polygon in segment.polygons]

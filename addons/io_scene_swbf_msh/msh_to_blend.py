@@ -122,7 +122,7 @@ def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) 
         
         new_obj = None
 
-        if model.model_type == ModelType.STATIC or model.model_type == ModelType.SKIN or model.model_type == ModelType.SHADOWVOLUME:  
+        if model.geometry:
 
             new_obj = model_to_mesh_object(model, scene, materials_map)
 
