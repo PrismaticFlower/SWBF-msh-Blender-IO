@@ -389,12 +389,26 @@ def expand_armature(armature: bpy.types.Object) -> List[Model]:
         #   set model parent to SKIN object if there is one
         #   set model parent to armature parent if there is one
         else:
+
+            bone_world_matrix = armature.matrix_world @ transform
+            parent_obj = None
+
             for child_obj in armature.original.children:
                 if child_obj.vertex_groups and not get_is_model_hidden(child_obj) and not child_obj.parent_bone:
-                    model.parent = child_obj.name
+                    #model.parent = child_obj.name
+                    parent_obj = child_obj
                     break
-            if not model.parent and armature.parent:
+
+            if parent_obj:
+                transform = parent_obj.matrix_world.inverted() @ bone_world_matrix
+                model.parent = parent_obj.name
+            elif not parent_obj and armature.parent:
+                transform = armature.parent.matrix_world.inverted() @ bone_world_matrix 
                 model.parent = armature.parent.name
+            else:
+                transform = bone_world_matrix
+                model.parent = ""
+
 
 
         local_translation, local_rotation, _ = transform.decompose()
