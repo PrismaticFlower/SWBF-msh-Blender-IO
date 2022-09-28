@@ -221,18 +221,25 @@ def extract_scene(filepath: str, scene: Scene):
 
             # Parent the object to a bone if necessary
             else:
-                if curr_model.parent in armature.data.bones and curr_model.name not in armature.data.bones:
+                parent_bone_name = ""
+                if curr_model.name in armature.data.bones and curr_model.geometry:
+                    parent_bone_name = curr_model.name
+                elif curr_model.parent in armature.data.bones and curr_model.name not in armature.data.bones:
+                    parent_bone_name = curr_model.parent
+
+                if parent_bone_name:
                     # Not sure what the different mats do, but saving the worldmat and 
                     # applying it after clearing the other mats yields correct results...
                     worldmat = curr_obj.matrix_world
 
                     curr_obj.parent = armature
                     curr_obj.parent_type = 'BONE'
-                    curr_obj.parent_bone = curr_model.parent
+                    curr_obj.parent_bone = parent_bone_name
                     # ''
                     curr_obj.matrix_basis = Matrix()
                     curr_obj.matrix_parent_inverse = Matrix()
                     curr_obj.matrix_world = worldmat
+
 
         '''
         Sometimes skins are parented to other skins.  We need to find the skin highest in the hierarchy and
@@ -264,7 +271,7 @@ def extract_scene(filepath: str, scene: Scene):
         # object counterpart (as created in extract_models)
         for bone in skel:
             model_to_remove = model_map[bone.name]
-            if model_to_remove:
+            if model_to_remove and model_to_remove.parent_bone == "":
                 bpy.data.objects.remove(model_to_remove, do_unlink=True)
                 model_map.pop(bone.name)
 
