@@ -11,6 +11,8 @@ from bpy.props import BoolProperty, EnumProperty, StringProperty
 from bpy.types import Operator, Menu
 
 
+import os
+
 
 # FillSWBFMaterialProperties
 
@@ -42,7 +44,8 @@ class FillSWBFMaterialProperties(bpy.types.Operator):
                         if link_node.type != 'TEX_IMAGE':
                             continue
 
-                        tex_name = link_node.image.name
+                        tex_name = link_node.image.filepath
+                        print(tex_name)
 
                         i = tex_name.find(".tga")
                         
@@ -96,24 +99,28 @@ to provide an exact emulation"""
         name = "Material Name", 
         description = "Name of material whose SWBF properties the generated nodes will emulate."
     )
+
+    fail_silently: BoolProperty(
+        name = "Fail Silently"
+    )
     
 
     def execute(self, context):
 
         material = bpy.data.materials[self.material_name]
 
-
         if material and material.swbf_msh_mat:
 
-            material.use_nodes = True
             mat_props = material.swbf_msh_mat
 
-            material.node_tree.nodes.clear()
-
-            bsdf = material.node_tree.nodes.new("ShaderNodeBsdfPrincipled")
-
             diffuse_texture_path = mat_props.diffuse_map
-            if diffuse_texture_path:
+            if diffuse_texture_path and os.path.exists(diffuse_texture_path):
+               
+                material.use_nodes = True
+                material.node_tree.nodes.clear()
+
+                bsdf = material.node_tree.nodes.new("ShaderNodeBsdfPrincipled")
+                
                 texImage = material.node_tree.nodes.new('ShaderNodeTexImage')
                 texImage.image = bpy.data.images.load(diffuse_texture_path)
                 texImage.image.alpha_mode = 'CHANNEL_PACKED'
@@ -127,10 +134,17 @@ to provide an exact emulation"""
                     material.node_tree.links.new(bsdf.inputs['Alpha'], texImage.outputs['Alpha']) 
 
                 material.use_backface_culling = not bool(mat_props.doublesided)
-        
 
-            output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
-            material.node_tree.links.new(output.inputs['Surface'], bsdf.outputs['BSDF']) 
+                output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
+                material.node_tree.links.new(output.inputs['Surface'], bsdf.outputs['BSDF']) 
+
+            else:
+
+                # Todo: figure out some way to raise an error but continue operator execution...
+                if self.fail_silently:
+                    return {'CANCELLED'}
+                else:
+                    raise RuntimeError(f"Diffuse texture at path: '{diffuse_texture_path}' was not found.")
 
 
         return {'FINISHED'}

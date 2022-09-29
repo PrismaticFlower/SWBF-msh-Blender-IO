@@ -31,7 +31,7 @@ def find_texture_path(folder_path : str, name : str) -> str:
         if os.path.exists(possible_path):
             return possible_path
 
-    return ""
+    return name
 
 
 
@@ -41,7 +41,7 @@ def swbf_material_to_blend(material_name : str, material : Material, folder_path
     
     fill_material_props(material, new_mat.swbf_msh_mat, folder_path)
     
-    bpy.ops.swbf_msh.generate_material_nodes('EXEC_DEFAULT', material_name=new_mat.name) 
+    bpy.ops.swbf_msh.generate_material_nodes('EXEC_DEFAULT', material_name=new_mat.name, fail_silently=True) 
 
     return new_mat    
 
@@ -122,10 +122,10 @@ def _fill_material_props_texture_maps(material, material_properties, folder_path
     t2path = find_texture_path(folder_path, material.texture2)        
     t3path = find_texture_path(folder_path, material.texture3)        
 
-    material_properties.texture_0 = t0path if t0path else material.texture0
-    material_properties.texture_1 = t1path if t1path else material.texture1
-    material_properties.texture_2 = t2path if t2path else material.texture2
-    material_properties.texture_3 = t3path if t3path else material.texture3
+    material_properties.texture_0 = t0path
+    material_properties.texture_1 = t1path
+    material_properties.texture_2 = t2path
+    material_properties.texture_3 = t3path
 
     material_properties.diffuse_map = t0path
     material_properties.distortion_map = t1path

@@ -297,4 +297,5 @@ class MaterialPropertiesPanel(bpy.types.Panel):
 
         op_props = layout.operator("swbf_msh.generate_material_nodes", text="Generate Nodes")
         op_props.material_name = context.material.name
+        op_props.fail_silently = False
 
