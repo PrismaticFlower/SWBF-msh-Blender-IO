@@ -24,50 +24,62 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
 
     models_list: List[Model] = []
 
-    armature_found = None
+    # Composite bones are bones which have geometry.  
+    # If a child object has the same name, it will take said child's geometry.
 
-    for uneval_obj in select_objects(export_target):
-        if uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents:
+    # Pure bones are just bones and after all objects are explored the only
+    # entries remaining in this dict will be bones without geometry.  
+    pure_bones_from_armature = {}
+
+    objects_to_export = select_objects(export_target)
+
+    for uneval_obj in objects_to_export:
+        if uneval_obj.type == "ARMATURE":
+            armature_found = uneval_obj.evaluated_get(depsgraph) if apply_modifiers else uneval_obj
+            pure_bones_from_armature = expand_armature(armature_found)
+            break
+
+    for uneval_obj in objects_to_export:
+        if uneval_obj.type == "ARMATURE" or (uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents):
             continue
 
-        if apply_modifiers:
-            obj = uneval_obj.evaluated_get(depsgraph)
-        else:
-            obj = uneval_obj 
+        obj = uneval_obj.evaluated_get(depsgraph) if apply_modifiers else uneval_obj
 
         check_for_bad_lod_suffix(obj)
 
-        if obj.type == "ARMATURE":
-            models_list += expand_armature(obj)
-            armature_found = obj
-            continue
-
-        model = Model()
-        model.name = obj.name
-        model.model_type = get_model_type(obj, skeleton_only)
-        model.hidden = get_is_model_hidden(obj)
-
-        transform = obj.matrix_local
-
-        if obj.parent_bone:
-            model.parent = obj.parent_bone
-
-            # matrix_local, when called on an armature child also parented to a bone, appears to be broken.
-            # At the very least, the results contradict the docs...  
-            armature_relative_transform = obj.parent.matrix_world.inverted() @ obj.matrix_world
-            transform = obj.parent.data.bones[obj.parent_bone].matrix_local.inverted() @ armature_relative_transform 
-
+        # Test for a mesh object that is actually a BONE (shares name with bone_parent)
+        # If so, we inject geometry into the BONE while not modifying it's transform/name
+        if obj.parent_bone and obj.parent_bone in pure_bones_from_armature:
+            model = pure_bones_from_armature[obj.parent_bone]
+            # Since we found a composite bone, removed it from the dict of pure bones
+            pure_bones_from_armature.pop(obj.parent_bone)
         else:
-            if obj.parent is not None:
-                if obj.parent.type == "ARMATURE":
-                    model.parent = obj.parent.parent.name if obj.parent.parent else ""
-                    transform = obj.parent.matrix_local @ transform
-                else:
-                    model.parent = obj.parent.name
+            model = Model()
+            model.name = obj.name
+            model.model_type = get_model_type(obj, skeleton_only)
+            model.hidden = get_is_model_hidden(obj)
 
-        local_translation, local_rotation, _ = transform.decompose()
-        model.transform.rotation = convert_rotation_space(local_rotation)  
-        model.transform.translation = convert_vector_space(local_translation)
+            transform = obj.matrix_local
+
+            if obj.parent_bone:
+                model.parent = obj.parent_bone
+
+                # matrix_local, when called on an armature child also parented to a bone, appears to be broken.
+                # At the very least, the results contradict the docs...  
+                armature_relative_transform = obj.parent.matrix_world.inverted() @ obj.matrix_world
+                transform = obj.parent.data.bones[obj.parent_bone].matrix_local.inverted() @ armature_relative_transform 
+
+            else:
+                if obj.parent is not None:
+                    if obj.parent.type == "ARMATURE":
+                        model.parent = obj.parent.parent.name if obj.parent.parent else ""
+                        transform = obj.parent.matrix_local @ transform
+                    else:
+                        model.parent = obj.parent.name
+
+            local_translation, local_rotation, _ = transform.decompose()
+            model.transform.rotation = convert_rotation_space(local_rotation)  
+            model.transform.translation = convert_vector_space(local_translation)
 
         if obj.type in MESH_OBJECT_TYPES:
 
@@ -92,9 +104,11 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
         if get_is_collision_primitive(obj):
             model.collisionprimitive = get_collision_primitive(obj)
 
-
         models_list.append(model)
 
+    # We removed all composite bones after looking through the objects,
+    # so the bones left are all pure and we add them all here.
+    models_list += pure_bones_from_armature.values()
 
     return (models_list, armature_found)
 
@@ -371,11 +385,17 @@ def select_objects(export_target: str) -> List[bpy.types.Object]:
 
 
 
-def expand_armature(armature: bpy.types.Object) -> List[Model]:
+
+
+
+
+
+
+def expand_armature(armature: bpy.types.Object) -> Dict[str, Model]:
 
     proper_BONES = get_real_BONES(armature)
 
-    bones: List[Model] = []
+    bones: Dict[str, Model] = {}
 
     for bone in armature.data.bones:
         model = Model()
@@ -390,7 +410,7 @@ def expand_armature(armature: bpy.types.Object) -> List[Model]:
         #   set model parent to armature parent if there is one
         else:
 
-            bone_world_matrix = armature.matrix_world @ transform
+            bone_world_matrix = get_bone_world_matrix(armature, bone.name)
             parent_obj = None
 
             for child_obj in armature.original.children:
@@ -418,6 +438,6 @@ def expand_armature(armature: bpy.types.Object) -> List[Model]:
         model.transform.rotation = convert_rotation_space(local_rotation)
         model.transform.translation = convert_vector_space(local_translation)
 
-        bones.append(model)
+        bones[bone.name] = model
 
     return bones

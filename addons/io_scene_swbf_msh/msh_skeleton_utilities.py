@@ -12,6 +12,14 @@ from .msh_model_utilities import *
 from .crc import *
 
 
+def get_bone_world_matrix(armature: bpy.types.Object, bone_name: str) -> Matrix:
+    if bone_name in armature.data.bones:
+        return armature.matrix_world @ armature.data.bones[bone_name].matrix_local
+    else:
+        return None
+
+
+
 def has_preserved_skeleton(armature : bpy.types.Armature):
     return len(armature.data.swbf_msh_skel) > 0
 
