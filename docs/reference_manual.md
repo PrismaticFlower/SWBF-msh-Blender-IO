@@ -580,10 +580,17 @@ Distortion maps control how Refractive materials distort the scene behind them. 
 ### Materials Operators
 
 #### Fill SWBF Properties
-Fills in SWBF properties of each material used by a currently selected object.  This operator will only work with materials that have ```Use Nodes``` enabled and will just fill in the Diffuse Map property with the name of the image used by the material's Principled BSDF node.  
+Fills in SWBF properties of each material used by all selected objects.  This operator will only work with materials that have ```Use Nodes``` enabled and will just fill in the Diffuse Map property with the name of the image used by the material's Principled BSDF node.  
 
 It is used by selecting the relevant objects and choosing `SWBF` > `Fill SWBF Material Properties` in the `Object Context` menu:
 <img src="https://raw.githubusercontent.com/SleepKiller/SWBF-msh-Blender-IO/master/docs/images/mat_fill_op.png" width="400" height="400"/>
+
+#### Generate SWBF Nodes
+Generates shader nodes that attempt to emulate the SWBF properties of a selected material.  Call this operator by clicking the `Generate Nodes` button found at the bottom of the selected material's SWBF properties panel.  Only transparency settings and diffuse texture mapping are currently supported.  When importing a .msh file, this operator is automatically called on each material extracted from the file.  
+
+You must click the `Generate Nodes` button every time you edit the material properties and wish to see the results.  The generated nodes will not automatically update when the SWBF properties are changed.  
+
+It is not necessary to call this operator for materials to correctly export.
 
 
 
