@@ -29,6 +29,7 @@
   + [XSI vs Blender](#xsi-vs-blender)
   + [Example Skin Hierarchy](#example-skin-hierarchy)
   + [Example Bone-Parent Hierarchy](#example-bone-parent-hierarchy)
+  + [Skeleton Notes](#skeleton-notes)
   + [Skinning Notes](#skinning-notes)
 - [Animation](#animation)
   + [Actions and Animations](#actions-and-animations)
@@ -639,6 +640,8 @@ The same goes for objects that are children of an armature, but are parented dir
   * bone_doorright
     * right_door_mesh
   
+### Skeleton Notes
+1. Animated msh bones can have have geometry. To accomplish this, create a bone in the scene's armature and a mesh object with the same name as the bone.  Parent the mesh object to the bone and make sure their origins are equal.  When exported, the bone and the mesh object will be merged into one.  The inverse process occurs when importing bones with geometry. 
 
 ### Skinning Notes
 
