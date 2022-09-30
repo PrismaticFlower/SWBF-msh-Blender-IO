@@ -12,6 +12,7 @@ from .msh_scene import Scene
 from .msh_material_to_blend import *
 from .msh_model import *
 from .msh_skeleton_utilities import *
+from .msh_skeleton_to_blend import *
 from .msh_model_gather import get_is_model_hidden
 from .msh_mesh_to_blend import model_to_mesh_object
 
@@ -108,9 +109,7 @@ def extract_and_apply_anim(filename : str, scene : Scene):
 
 
 
-# Create the msh hierachy.  Armatures are not created here.  Much of this could use some optimization...
-
-# TODO: Replace with an approach informed by existing Blender addons (io_scene_obj e.g.) 
+# Create the msh hierachy.  Armatures are not created here.
 def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) -> Dict[str, bpy.types.Object]:
 
     # This will be filled with model names -> Blender objects and returned

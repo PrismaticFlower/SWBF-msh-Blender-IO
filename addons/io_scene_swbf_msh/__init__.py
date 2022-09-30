@@ -62,8 +62,8 @@ from .msh_scene_read import read_scene
 from .msh_material_properties import *
 from .msh_skeleton_properties import *
 from .msh_collision_prim_properties import *
-from .msh_to_blend import *
 from .msh_material_operators import *
+from .msh_scene_to_blend import *
 from .zaa_to_blend import *
 
 

@@ -39,7 +39,7 @@ def extract_anim(armature: bpy.types.Armature, root_name: str) -> Animation:
     # If it doesn't have a preserved skeleton, then we add the scene root. 
     # If it does have a preserved skeleton, any objects not animatable by blender (i.e. objects above the skeleton, scene root)
     # will be included in the preserved skeleton 
-    if not has_preserved_skeleton(armature):
+    if len(armature.data.swbf_msh_skel):
         keyable_bones.add(root_name)
 
     # Subset of above bones to key with dummy frames (all bones not in armature)
