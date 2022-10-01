@@ -30,6 +30,7 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
     # Pure bones are just bones and after all objects are explored the only
     # entries remaining in this dict will be bones without geometry.  
     pure_bones_from_armature = {}
+    armature_found = None
 
     objects_to_export = select_objects(export_target)
 
