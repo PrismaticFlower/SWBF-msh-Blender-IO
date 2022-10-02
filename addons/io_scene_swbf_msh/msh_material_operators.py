@@ -177,16 +177,37 @@ to provide an exact emulation"""
         material.node_tree.links.new(output.inputs['Surface'], surfaces_output.outputs[0]) 
 
 
+        # Clear all anims in all cases
+        if material.node_tree.animation_data:
+            material.node_tree.animation_data.action.fcurves.clear()
+
+
         if "SCROLL" in mat_props.rendertype:
             uv_input = material.node_tree.nodes.new("ShaderNodeUVMap")
 
             vector_add = material.node_tree.nodes.new("ShaderNodeVectorMath")
+
+            # Add keyframes
+            scroll_speed_divisor = 360.0
+            for i in range(4):
+                vector_add.inputs[1].default_value[0] = i * mat_props.scroll_speed_u                
+                vector_add.inputs[1].keyframe_insert("default_value", index=0, frame=i * scroll_speed_divisor)
+
+                vector_add.inputs[1].default_value[1] = i * mat_props.scroll_speed_v                
+                vector_add.inputs[1].keyframe_insert("default_value", index=1, frame=i * scroll_speed_divisor)
+
 
             material.node_tree.links.new(vector_add.inputs[0], uv_input.outputs[0])
 
             for texture_node in texture_input_nodes:
                 material.node_tree.links.new(texture_node.inputs["Vector"], vector_add.outputs[0])
 
+        # Don't know how to set interpolation when adding keyframes
+        # so we must do it after the fact
+        if material.node_tree.animation_data:
+            for fcurve in material.node_tree.animation_data.action.fcurves:
+                for kf in fcurve.keyframe_points.values():
+                    kf.interpolation = 'LINEAR'        
 
 
 
