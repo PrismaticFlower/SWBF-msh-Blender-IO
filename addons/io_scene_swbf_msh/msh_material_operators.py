@@ -107,45 +107,82 @@ to provide an exact emulation"""
 
     def execute(self, context):
 
-        material = bpy.data.materials[self.material_name]
+        material = bpy.data.materials.get(self.material_name, None)
 
-        if material and material.swbf_msh_mat:
+        if not material or not material.swbf_msh_mat:
+            return {'CANCELLED'}
 
-            mat_props = material.swbf_msh_mat
+        mat_props = material.swbf_msh_mat
 
-            diffuse_texture_path = mat_props.diffuse_map
-            if diffuse_texture_path and os.path.exists(diffuse_texture_path):
-               
-                material.use_nodes = True
-                material.node_tree.nodes.clear()
 
-                bsdf = material.node_tree.nodes.new("ShaderNodeBsdfPrincipled")
-                
-                texImage = material.node_tree.nodes.new('ShaderNodeTexImage')
-                texImage.image = bpy.data.images.load(diffuse_texture_path)
-                texImage.image.alpha_mode = 'CHANNEL_PACKED'
-                material.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color']) 
+        texture_input_nodes = []
+        surface_output_nodes = []
 
-                bsdf.inputs["Roughness"].default_value = 1.0
-                bsdf.inputs["Specular"].default_value = 0.0
+        diffuse_texture_path = mat_props.diffuse_map
+        if diffuse_texture_path and os.path.exists(diffuse_texture_path):
+           
+            material.use_nodes = True
+            material.node_tree.nodes.clear()
 
-                if mat_props.hardedged_transparency:
-                    material.blend_method = "CLIP"
-                    material.node_tree.links.new(bsdf.inputs['Alpha'], texImage.outputs['Alpha']) 
+            bsdf = material.node_tree.nodes.new("ShaderNodeBsdfPrincipled")
+            
+            texImage = material.node_tree.nodes.new('ShaderNodeTexImage')
+            texImage.image = bpy.data.images.load(diffuse_texture_path)
+            texImage.image.alpha_mode = 'CHANNEL_PACKED'
+            material.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color']) 
 
-                material.use_backface_culling = not bool(mat_props.doublesided)
+            bsdf.inputs["Roughness"].default_value = 1.0
+            bsdf.inputs["Specular"].default_value = 0.0
 
-                output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
-                material.node_tree.links.new(output.inputs['Surface'], bsdf.outputs['BSDF']) 
+            if mat_props.hardedged_transparency and not mat_props.glow:
+                material.blend_method = "CLIP"
+                material.node_tree.links.new(bsdf.inputs['Alpha'], texImage.outputs['Alpha']) 
 
+            material.use_backface_culling = not bool(mat_props.doublesided)
+
+            surface_output_nodes.append(tuple(('BSDF', bsdf)))
+
+
+            if mat_props.glow:
+
+                emission = material.node_tree.nodes.new("ShaderNodeEmission")
+                material.node_tree.links.new(emission.inputs['Color'], texImage.outputs['Color']) 
+
+                emission_strength_multiplier = material.node_tree.nodes.new("ShaderNodeMath")
+                emission_strength_multiplier.operation = 'MULTIPLY'
+                emission_strength_multiplier.inputs[1].default_value = 32.0
+
+                material.node_tree.links.new(emission_strength_multiplier.inputs[0], texImage.outputs['Alpha']) 
+
+                material.node_tree.links.new(emission.inputs['Strength'], emission_strength_multiplier.outputs[0])
+
+                surface_output_nodes.append(tuple(("Emission", emission)))
+
+
+        surfaces_output = None
+        if (len(surface_output_nodes) == 1):
+            surfaces_output = surface_output_nodes[0][1]
+        else:
+            mix = material.node_tree.nodes.new("ShaderNodeMixShader")
+            material.node_tree.links.new(mix.inputs[1], surface_output_nodes[0][1].outputs[0])
+            material.node_tree.links.new(mix.inputs[2], surface_output_nodes[1][1].outputs[0])
+
+            surfaces_output = mix
+
+
+        output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
+        material.node_tree.links.new(output.inputs['Surface'], surfaces_output.outputs[0]) 
+
+
+        '''
+        else:
+
+            # Todo: figure out some way to raise an error but continue operator execution...
+            if self.fail_silently:
+                return {'CANCELLED'}
             else:
-
-                # Todo: figure out some way to raise an error but continue operator execution...
-                if self.fail_silently:
-                    return {'CANCELLED'}
-                else:
-                    raise RuntimeError(f"Diffuse texture at path: '{diffuse_texture_path}' was not found.")
-
+                raise RuntimeError(f"Diffuse texture at path: '{diffuse_texture_path}' was not found.")
+        '''
 
         return {'FINISHED'}
 
