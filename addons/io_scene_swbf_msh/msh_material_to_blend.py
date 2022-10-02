@@ -2,16 +2,17 @@
 
 import bpy
 from typing import Dict
-from .msh_material import *
-from .msh_material_gather import *
+
 from .msh_material_properties import *
-from .msh_material_operators import *
+from .msh_material import *
 
 from .msh_material_utilities import _REVERSE_RENDERTYPES_MAPPING
 
 from math import sqrt
 
 import os
+
+
 
 
 
