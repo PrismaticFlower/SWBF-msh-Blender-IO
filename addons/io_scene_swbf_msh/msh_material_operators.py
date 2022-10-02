@@ -125,11 +125,14 @@ to provide an exact emulation"""
             material.node_tree.nodes.clear()
 
             bsdf = material.node_tree.nodes.new("ShaderNodeBsdfPrincipled")
-            
+
+
             texImage = material.node_tree.nodes.new('ShaderNodeTexImage')
             texImage.image = bpy.data.images.load(diffuse_texture_path)
             texImage.image.alpha_mode = 'CHANNEL_PACKED'
             material.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color']) 
+
+            texture_input_nodes.append(texImage)
 
             bsdf.inputs["Roughness"].default_value = 1.0
             bsdf.inputs["Specular"].default_value = 0.0
@@ -172,6 +175,20 @@ to provide an exact emulation"""
 
         output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
         material.node_tree.links.new(output.inputs['Surface'], surfaces_output.outputs[0]) 
+
+
+        if "SCROLL" in mat_props.rendertype:
+            uv_input = material.node_tree.nodes.new("ShaderNodeUVMap")
+
+            vector_add = material.node_tree.nodes.new("ShaderNodeVectorMath")
+
+            material.node_tree.links.new(vector_add.inputs[0], uv_input.outputs[0])
+
+            for texture_node in texture_input_nodes:
+                material.node_tree.links.new(texture_node.inputs["Vector"], vector_add.outputs[0])
+
+
+
 
 
         '''
