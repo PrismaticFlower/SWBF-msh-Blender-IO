@@ -173,6 +173,20 @@ to provide an exact emulation"""
                 surfaces_output = mix
 
 
+            if "NORMALMAP" in mat_props.rendertype and mat_props.normal_map and os.path.exists(mat_props.normal_map):
+                normalMapTexImage = material.node_tree.nodes.new('ShaderNodeTexImage')
+                normalMapTexImage.image = bpy.data.images.load(mat_props.normal_map)
+                normalMapTexImage.image.alpha_mode = 'CHANNEL_PACKED'
+                normalMapTexImage.image.colorspace_settings.name = 'Non-Color'
+                texture_input_nodes.append(normalMapTexImage)
+
+                normalMapNode = material.node_tree.nodes.new('ShaderNodeNormalMap')
+                material.node_tree.links.new(normalMapNode.inputs["Color"], normalMapTexImage.outputs["Color"])
+                
+                material.node_tree.links.new(bsdf.inputs['Normal'], normalMapNode.outputs["Normal"]) 
+
+
+
             output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
             material.node_tree.links.new(output.inputs['Surface'], surfaces_output.outputs[0]) 
 
