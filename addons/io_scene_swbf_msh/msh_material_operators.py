@@ -10,6 +10,8 @@ from math import sqrt
 from bpy.props import BoolProperty, EnumProperty, StringProperty
 from bpy.types import Operator, Menu
 
+from .option_file_parser import MungeOptions
+
 
 import os
 
@@ -180,10 +182,29 @@ to provide an exact emulation"""
                 normalMapTexImage.image.colorspace_settings.name = 'Non-Color'
                 texture_input_nodes.append(normalMapTexImage)
 
-                normalMapNode = material.node_tree.nodes.new('ShaderNodeNormalMap')
-                material.node_tree.links.new(normalMapNode.inputs["Color"], normalMapTexImage.outputs["Color"])
+                options = MungeOptions(mat_props.normal_map + ".option")
+
+                if options.get_bool("bumpmap"):
+
+                    # First we must convert the RGB data to brightness
+                    rgb_to_bw_node = material.node_tree.nodes.new("ShaderNodeRGBToBW")
+                    material.node_tree.links.new(rgb_to_bw_node.inputs["Color"], normalMapTexImage.outputs["Color"])
+
+                    # Now create a bump map node (perhaps we could also use this with normals and just plug color into normal input?)
+                    bumpMapNode = material.node_tree.nodes.new('ShaderNodeBump')
+                    bumpMapNode.inputs["Distance"].default_value = options.get_float("bumpscale", default=1.0)
+                    material.node_tree.links.new(bumpMapNode.inputs["Height"], rgb_to_bw_node.outputs["Val"])
+
+                    normalsOutputNode = bumpMapNode
+
+                else:
+
+                    normalMapNode = material.node_tree.nodes.new('ShaderNodeNormalMap')
+                    material.node_tree.links.new(normalMapNode.inputs["Color"], normalMapTexImage.outputs["Color"])
+
+                    normalsOutputNode = normalMapNode
                 
-                material.node_tree.links.new(bsdf.inputs['Normal'], normalMapNode.outputs["Normal"]) 
+                material.node_tree.links.new(bsdf.inputs['Normal'], normalsOutputNode.outputs["Normal"]) 
 
 
 
