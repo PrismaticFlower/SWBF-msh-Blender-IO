@@ -118,9 +118,10 @@ to provide an exact emulation"""
         texture_input_nodes = []
         surface_output_nodes = []
 
+
         diffuse_texture_path = mat_props.diffuse_map
         if diffuse_texture_path and os.path.exists(diffuse_texture_path):
-           
+
             material.use_nodes = True
             material.node_tree.nodes.clear()
 
@@ -161,56 +162,54 @@ to provide an exact emulation"""
 
                 surface_output_nodes.append(tuple(("Emission", emission)))
 
+            surfaces_output = None
+            if (len(surface_output_nodes) == 1):
+                surfaces_output = surface_output_nodes[0][1]
+            else:
+                mix = material.node_tree.nodes.new("ShaderNodeMixShader")
+                material.node_tree.links.new(mix.inputs[1], surface_output_nodes[0][1].outputs[0])
+                material.node_tree.links.new(mix.inputs[2], surface_output_nodes[1][1].outputs[0])
 
-        surfaces_output = None
-        if (len(surface_output_nodes) == 1):
-            surfaces_output = surface_output_nodes[0][1]
-        else:
-            mix = material.node_tree.nodes.new("ShaderNodeMixShader")
-            material.node_tree.links.new(mix.inputs[1], surface_output_nodes[0][1].outputs[0])
-            material.node_tree.links.new(mix.inputs[2], surface_output_nodes[1][1].outputs[0])
-
-            surfaces_output = mix
-
-
-        output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
-        material.node_tree.links.new(output.inputs['Surface'], surfaces_output.outputs[0]) 
+                surfaces_output = mix
 
 
-        # Clear all anims in all cases
-        if material.node_tree.animation_data:
-            material.node_tree.animation_data.action.fcurves.clear()
+            output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
+            material.node_tree.links.new(output.inputs['Surface'], surfaces_output.outputs[0]) 
 
 
-        if "SCROLL" in mat_props.rendertype:
-            uv_input = material.node_tree.nodes.new("ShaderNodeUVMap")
-
-            vector_add = material.node_tree.nodes.new("ShaderNodeVectorMath")
-
-            # Add keyframes
-            scroll_speed_divisor = 360.0
-            for i in range(4):
-                vector_add.inputs[1].default_value[0] = i * mat_props.scroll_speed_u                
-                vector_add.inputs[1].keyframe_insert("default_value", index=0, frame=i * scroll_speed_divisor)
-
-                vector_add.inputs[1].default_value[1] = i * mat_props.scroll_speed_v                
-                vector_add.inputs[1].keyframe_insert("default_value", index=1, frame=i * scroll_speed_divisor)
+            # Clear all anims in all cases
+            if material.node_tree.animation_data:
+                material.node_tree.animation_data.action.fcurves.clear()
 
 
-            material.node_tree.links.new(vector_add.inputs[0], uv_input.outputs[0])
+            if "SCROLL" in mat_props.rendertype:
+                uv_input = material.node_tree.nodes.new("ShaderNodeUVMap")
 
-            for texture_node in texture_input_nodes:
-                material.node_tree.links.new(texture_node.inputs["Vector"], vector_add.outputs[0])
+                vector_add = material.node_tree.nodes.new("ShaderNodeVectorMath")
 
-        # Don't know how to set interpolation when adding keyframes
-        # so we must do it after the fact
-        if material.node_tree.animation_data:
-            for fcurve in material.node_tree.animation_data.action.fcurves:
-                for kf in fcurve.keyframe_points.values():
-                    kf.interpolation = 'LINEAR'        
+                # Add keyframes
+                scroll_per_sec_divisor = 255.0 
+                frame_step = 60.0
+                fps = bpy.context.scene.render.fps
+                for i in range(2):
+                    vector_add.inputs[1].default_value[0] = i * mat_props.scroll_speed_u * frame_step / scroll_per_sec_divisor              
+                    vector_add.inputs[1].keyframe_insert("default_value", index=0, frame=i * frame_step * fps)
+
+                    vector_add.inputs[1].default_value[1] = i * mat_props.scroll_speed_v * frame_step / scroll_per_sec_divisor               
+                    vector_add.inputs[1].keyframe_insert("default_value", index=1, frame=i * frame_step * fps)
 
 
+                material.node_tree.links.new(vector_add.inputs[0], uv_input.outputs[0])
 
+                for texture_node in texture_input_nodes:
+                    material.node_tree.links.new(texture_node.inputs["Vector"], vector_add.outputs[0])
+
+            # Don't know how to set interpolation when adding keyframes
+            # so we must do it after the fact
+            if material.node_tree.animation_data:
+                for fcurve in material.node_tree.animation_data.action.fcurves:
+                    for kf in fcurve.keyframe_points.values():
+                        kf.interpolation = 'LINEAR'
 
         '''
         else:
