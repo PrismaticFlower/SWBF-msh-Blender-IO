@@ -106,7 +106,7 @@ def _fill_material_props_data(material, material_properties):
     anim_length_index = int(sqrt(material.data[0]))
     if anim_length_index < 0:
         anim_length_index = 0
-    elif anim_length_index > len(UI_MATERIAL_ANIMATION_LENGTHS):
+    elif anim_length_index >= len(UI_MATERIAL_ANIMATION_LENGTHS):
         anim_length_index = len(UI_MATERIAL_ANIMATION_LENGTHS) - 1
 
     material_properties.animation_length = UI_MATERIAL_ANIMATION_LENGTHS[anim_length_index][0]
