@@ -72,6 +72,7 @@ class FillSWBFMaterialProperties(bpy.types.Operator):
                             texture_node = curr_node
                             break
                         else:
+                            # Crude but good for now
                             next_nodes = []
                             for node_input in curr_node.inputs:
                                 for link in node_input.links:
@@ -125,6 +126,7 @@ def draw_matfill_menu(self, context):
 
 # Creates shader nodes to emulate SWBF material properties.
 # Will probably only support for a narrow subset of properties...
+# So much fun to write this, will probably do all render types by end of October
 
 class GenerateMaterialNodesFromSWBFProperties(bpy.types.Operator):
     
@@ -171,7 +173,6 @@ to provide an exact emulation"""
 
             bsdf = material.node_tree.nodes.new("ShaderNodeBsdfPrincipled")
 
-
             texImage = material.node_tree.nodes.new('ShaderNodeTexImage')
             texImage.image = bpy.data.images.load(diffuse_texture_path)
             texImage.image.alpha_mode = 'CHANNEL_PACKED'
@@ -182,17 +183,30 @@ to provide an exact emulation"""
             bsdf.inputs["Roughness"].default_value = 1.0
             bsdf.inputs["Specular"].default_value = 0.0
 
-            if mat_props.hardedged_transparency and not mat_props.glow:
-                material.blend_method = "CLIP"
-                material.node_tree.links.new(bsdf.inputs['Alpha'], texImage.outputs['Alpha']) 
-
             material.use_backface_culling = not bool(mat_props.doublesided)
 
-            surface_output_nodes.append(tuple(('BSDF', bsdf)))
+            surface_output_nodes.append(('BSDF', bsdf))
 
+            if not mat_props.glow:
+                if mat_props.hardedged_transparency:
+                    material.blend_method = "CLIP"
+                    material.node_tree.links.new(bsdf.inputs['Alpha'], texImage.outputs['Alpha'])
+                elif mat_props.blended_transparency:
+                    material.blend_method = "BLEND" 
+                    material.node_tree.links.new(bsdf.inputs['Alpha'], texImage.outputs['Alpha'])
+                elif mat_props.additive_transparency:
+
+                    # most complex 
+                    transparent_bsdf = material.node_tree.nodes.new("ShaderNodeBsdfTransparent")
+                    add_shader = material.node_tree.nodes.new("ShaderNodeAddShader")
+
+                    material.node_tree.links.new(add_shader.inputs[0], bsdf.outputs["BSDF"])
+                    material.node_tree.links.new(add_shader.inputs[1], transparent_bsdf.outputs["BSDF"])
+
+                    surface_output_nodes[0] = ('Shader', add_shader)
 
             # Glow (adds another shader output)
-            if mat_props.glow:
+            else:
 
                 emission = material.node_tree.nodes.new("ShaderNodeEmission")
                 material.node_tree.links.new(emission.inputs['Color'], texImage.outputs['Color']) 
@@ -205,7 +219,7 @@ to provide an exact emulation"""
 
                 material.node_tree.links.new(emission.inputs['Strength'], emission_strength_multiplier.outputs[0])
 
-                surface_output_nodes.append(tuple(("Emission", emission)))
+                surface_output_nodes.append(("Emission", emission))
 
             surfaces_output = None
             if (len(surface_output_nodes) == 1):
@@ -262,7 +276,7 @@ to provide an exact emulation"""
 
             # Clear all anims in all cases
             if material.node_tree.animation_data:
-                material.node_tree.animation_data.action.fcurves.clear()
+                material.node_tree.animation_data_clear()
 
 
             if "SCROLL" in mat_props.rendertype:
@@ -289,7 +303,7 @@ to provide an exact emulation"""
 
             # Don't know how to set interpolation when adding keyframes
             # so we must do it after the fact
-            if material.node_tree.animation_data:
+            if material.node_tree.animation_data and material.node_tree.animation_data.action:
                 for fcurve in material.node_tree.animation_data.action.fcurves:
                     for kf in fcurve.keyframe_points.values():
                         kf.interpolation = 'LINEAR'
