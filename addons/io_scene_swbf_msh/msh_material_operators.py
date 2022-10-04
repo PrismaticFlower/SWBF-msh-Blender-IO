@@ -35,28 +35,60 @@ class FillSWBFMaterialProperties(bpy.types.Operator):
         slots = sum([list(ob.material_slots) for ob in bpy.context.selected_objects if ob.type == 'MESH'],[])
         mats = [slot.material for slot in slots if (slot.material and slot.material.node_tree)]
 
+        mats_visited = set()
+
         for mat in mats:
+
+            if mat.name in mats_visited:
+                continue
+            else:
+                mats_visited.add(mat.name)
+
             try:
                 for BSDF_node in [n for n in mat.node_tree.nodes if n.type == 'BSDF_PRINCIPLED']:
                     base_col = BSDF_node.inputs['Base Color'] 
 
-                    for link in base_col.links :
-                        link_node = link.from_node
+                    stack = []
 
-                        if link_node.type != 'TEX_IMAGE':
-                            continue
+                    texture_node = None
 
-                        tex_name = link_node.image.filepath
-                        print(tex_name)
+                    current_socket = base_col
+                    if base_col.is_linked:
+                        stack.append(base_col.links[0].from_node)
 
-                        i = tex_name.find(".tga")
+                    while stack:
+
+                        curr_node = stack.pop()
+
+                        if curr_node.type == 'TEX_IMAGE':
+                            texture_node = curr_node
+                            break
+                        else:
+                            next_nodes = []
+                            for node_input in curr_node.inputs:
+                                for link in node_input.links:
+                                    next_nodes.append(link.from_node)
+                            # reversing it so we go from up to down
+                            stack += reversed(next_nodes)
+
+
+                    if texture_node is not None:
+
+                        tex_path = texture_node.image.filepath
+
+                        tex_name = os.path.basename(tex_path)
+
+                        i = tex_name.find('.')
                         
                         # Get rid of trailing number in case one is present
                         if i > 0:
-                            tex_name = tex_name[0:i+4]
+                            tex_name = tex_name[0:i] + ".tga"
 
-                        mat.swbf_msh_mat.diffuse_map = tex_name 
-                        mat.swbf_msh_mat.texture_0 = tex_name
+                        refined_tex_path = os.path.join(os.path.dirname(tex_path), tex_name)
+
+                        mat.swbf_msh_mat.diffuse_map = refined_tex_path 
+                        mat.swbf_msh_mat.texture_0 = refined_tex_path
+
                         break 
             except:
                 # Many chances for null ref exceptions. None if user reads doc section...
