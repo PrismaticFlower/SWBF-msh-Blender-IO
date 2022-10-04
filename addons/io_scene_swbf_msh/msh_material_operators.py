@@ -47,6 +47,7 @@ class FillSWBFMaterialProperties(bpy.types.Operator):
             mat.swbf_msh_mat.doublesided = not mat.use_backface_culling
             mat.swbf_msh_mat.hardedged_transparency = (mat.blend_method == "CLIP")
             mat.swbf_msh_mat.blended_transparency = (mat.blend_method == "BLEND")
+            mat.swbf_msh_mat.additive_transparency = (mat.blend_method == "ADDITIVE")
 
 
             # Below is all for filling the diffuse map/texture_0 fields
