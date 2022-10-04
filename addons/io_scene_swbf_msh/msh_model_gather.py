@@ -32,32 +32,54 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
     pure_bones_from_armature = {}
     armature_found = None
 
-    objects_to_export = select_objects(export_target)
+    # Non-bone objects that will be exported
+    blender_objects_to_export = []
 
-    for uneval_obj in objects_to_export:
-        if uneval_obj.type == "ARMATURE":
+    # This must be seperate from the list above,
+    # since exported objects will contain Blender objects as well as bones
+    # Here we just keep track of all names, regardless of origin
+    exported_object_names: Set[str] = set() 
+
+    # Armature must be processed before everything else!
+
+    # In this loop we also build a set of names of all objects
+    # that will be exported.  This is necessary so we can prune vertex
+    # groups that do not reference exported objects in the main 
+    # model building loop below this one.
+    for uneval_obj in select_objects(export_target):
+        if uneval_obj.type == "ARMATURE" and not armature_found:
+            # Keep track of the armature, we don't want to process > 1!
             armature_found = uneval_obj.evaluated_get(depsgraph) if apply_modifiers else uneval_obj
+            # Get all bones in a separate list.  While we iterate through
+            # objects we removed bones with geometry from this dict.  After iteration
+            # is done, we add the remaining bones to the models from exported
+            # scene objects.
             pure_bones_from_armature = expand_armature(armature_found)
-            break
+            # All bones to set
+            exported_object_names.update(pure_bones_from_armature.keys())
+        
+        elif not (uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents):
+            exported_object_names.add(uneval_obj.name)
+            blender_objects_to_export.append(uneval_obj)
+        
+        else:
+            pass
 
-    for uneval_obj in objects_to_export:
-        if uneval_obj.type == "ARMATURE" or (uneval_obj.type in SKIPPED_OBJECT_TYPES and uneval_obj.name not in parents):
-            continue
+    for uneval_obj in blender_objects_to_export:
 
         obj = uneval_obj.evaluated_get(depsgraph) if apply_modifiers else uneval_obj
 
         check_for_bad_lod_suffix(obj)
 
-        # Test for a mesh object that is actually a BONE (shares name with bone_parent)
+        # Test for a mesh object that should be a BONE on export.
         # If so, we inject geometry into the BONE while not modifying it's transform/name
-        if obj.parent_bone and obj.parent_bone in pure_bones_from_armature:
-            model = pure_bones_from_armature[obj.parent_bone]
-            # Since we found a composite bone, removed it from the dict of pure bones
-            pure_bones_from_armature.pop(obj.parent_bone)
+        # and remove it from the set of BONES without geometry (pure).
+        if obj.name in pure_bones_from_armature:
+            model = pure_bones_from_armature.pop(obj.name)
         else:
             model = Model()
             model.name = obj.name
-            model.model_type = get_model_type(obj, skeleton_only)
+            model.model_type = ModelType.NULL if skeleton_only else get_model_type(obj, armature_found)
             model.hidden = get_is_model_hidden(obj)
 
             transform = obj.matrix_local
@@ -82,10 +104,19 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
             model.transform.rotation = convert_rotation_space(local_rotation)  
             model.transform.translation = convert_vector_space(local_translation)
 
-        if obj.type in MESH_OBJECT_TYPES:
+        if obj.type in MESH_OBJECT_TYPES and not skeleton_only:
+
+            # Vertex groups are often used for purposes other than skinning.
+            # Here we gather all vgroups and select the ones that reference
+            # objects included in the export.
+            valid_vgroup_indices : Set[int] = set()
+            if model.model_type == ModelType.SKIN:
+                valid_vgroups = [group for group in obj.vertex_groups if group.name in exported_object_names]
+                valid_vgroup_indices = { group.index for group in valid_vgroups }
+                model.bone_map = [ group.name for group in valid_vgroups ]
 
             mesh = obj.to_mesh()
-            model.geometry = create_mesh_geometry(mesh, obj.vertex_groups)
+            model.geometry = create_mesh_geometry(mesh, valid_vgroup_indices)
 
             obj.to_mesh_clear()
 
@@ -98,9 +129,6 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
                     raise RuntimeError(f"Object '{obj.name}' has resulted in a .msh geometry segment that has "
                                        f"more than {MAX_MSH_VERTEX_COUNT} vertices! Split the object's mesh up "
                                        f"and try again!")
-            if obj.vertex_groups:
-                model.bone_map = [group.name for group in obj.vertex_groups]
-
 
         if get_is_collision_primitive(obj):
             model.collisionprimitive = get_collision_primitive(obj)
@@ -109,9 +137,7 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
 
     # We removed all composite bones after looking through the objects,
     # so the bones left are all pure and we add them all here.
-    models_list += pure_bones_from_armature.values()
-
-    return (models_list, armature_found)
+    return (models_list + list(pure_bones_from_armature.values()), armature_found)
 
 
 
@@ -127,7 +153,7 @@ def create_parents_set() -> Set[str]:
 
     return parents
 
-def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[GeometrySegment]:
+def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -> List[GeometrySegment]:
     """ Creates a list of GeometrySegment objects from a Blender mesh.
         Does NOT create triangle strips in the GeometrySegment however. """
 
@@ -148,7 +174,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[Geomet
         for segment in segments:
             segment.colors = []
 
-    if has_weights:
+    if valid_vgroup_indices:
         for segment in segments:
             segment.weights = []
 
@@ -185,8 +211,9 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[Geomet
 
             if segment.weights is not None:
                 for v in mesh.vertices[vertex_index].groups:
-                    yield v.group
-                    yield v.weight
+                    if v.group in valid_vgroup_indices:                    
+                        yield v.group
+                        yield v.weight
 
         vertex_cache_entry = tuple(get_cache_vertex())
         cached_vertex_index = cache.get(vertex_cache_entry, vertex_cache_miss_index)
@@ -213,8 +240,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[Geomet
 
         if segment.weights is not None:
             groups = mesh.vertices[vertex_index].groups
-           
-            segment.weights.append([VertexWeight(v.weight, v.group) for v in groups])
+            segment.weights.append([VertexWeight(v.weight, v.group) for v in groups if v.group in valid_vgroup_indices])
 
         return new_index
 
@@ -233,12 +259,29 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, has_weights: bool) -> List[Geomet
 
     return segments
 
-def get_model_type(obj: bpy.types.Object, skel_only: bool) -> ModelType:
+def get_model_type(obj: bpy.types.Object, armature_found: bpy.types.Object) -> ModelType:
     """ Get the ModelType for a Blender object. """
 
-    if obj.type in MESH_OBJECT_TYPES and not skel_only:
-        if obj.vertex_groups:
-            return ModelType.SKIN
+    if obj.type in MESH_OBJECT_TYPES:
+        # Objects can have vgroups for non-skinning purposes.
+        # If we can find one vgroup that shares a name with a bone in the 
+        # armature, we know the vgroup is for weighting purposes and thus
+        # the object is a skin.  Otherwise, interpret it as a static mesh.
+
+        # We must also check that an armature included in the export
+        # and that it is the same one this potential skin is weighting to.
+        # If we failed to do this, a user could export a selected object
+        # that is a skin, but the weight data in the export would reference
+        # nonexistent models!
+        if (obj.vertex_groups and armature_found and 
+            obj.parent and obj.parent.name == armature_found.name):
+            
+            for vgroup in obj.vertex_groups:
+                if vgroup.name in armature_found.data.bones:
+                    return ModelType.SKIN
+
+            return ModelType.STATIC
+        
         else:
             return ModelType.STATIC
 
