@@ -39,10 +39,17 @@ class FillSWBFMaterialProperties(bpy.types.Operator):
 
         for mat in mats:
 
-            if mat.name in mats_visited:
+            if mat.name in mats_visited or not mat.swbf_msh_mat:
                 continue
             else:
                 mats_visited.add(mat.name)
+
+            mat.swbf_msh_mat.doublesided = not mat.use_backface_culling
+            mat.swbf_msh_mat.hardedged_transparency = (mat.blend_method == "CLIP")
+            mat.swbf_msh_mat.blended_transparency = (mat.blend_method == "BLEND")
+
+
+            # Below is all for filling the diffuse map/texture_0 fields
 
             try:
                 for BSDF_node in [n for n in mat.node_tree.nodes if n.type == 'BSDF_PRINCIPLED']:
