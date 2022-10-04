@@ -55,8 +55,8 @@ class FillSWBFMaterialProperties(bpy.types.Operator):
                         if i > 0:
                             tex_name = tex_name[0:i+4]
 
-                        mat.swbf_msh_mat.rendertype = 'NORMAL_BF2'
                         mat.swbf_msh_mat.diffuse_map = tex_name 
+                        mat.swbf_msh_mat.texture_0 = tex_name
                         break 
             except:
                 # Many chances for null ref exceptions. None if user reads doc section...
@@ -120,7 +120,9 @@ to provide an exact emulation"""
         texture_input_nodes = []
         surface_output_nodes = []
 
-
+        # Op will give up if no diffuse map is present.
+        # Eventually more nuance will be added for different
+        # rtypes
         diffuse_texture_path = mat_props.diffuse_map
         if diffuse_texture_path and os.path.exists(diffuse_texture_path):
 
@@ -149,6 +151,7 @@ to provide an exact emulation"""
             surface_output_nodes.append(tuple(('BSDF', bsdf)))
 
 
+            # Glow (adds another shader output)
             if mat_props.glow:
 
                 emission = material.node_tree.nodes.new("ShaderNodeEmission")
@@ -174,7 +177,7 @@ to provide an exact emulation"""
 
                 surfaces_output = mix
 
-
+            # Normal/bump mapping (needs more rendertype support!)
             if "NORMALMAP" in mat_props.rendertype and mat_props.normal_map and os.path.exists(mat_props.normal_map):
                 normalMapTexImage = material.node_tree.nodes.new('ShaderNodeTexImage')
                 normalMapTexImage.image = bpy.data.images.load(mat_props.normal_map)
@@ -211,6 +214,11 @@ to provide an exact emulation"""
             output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
             material.node_tree.links.new(output.inputs['Surface'], surfaces_output.outputs[0]) 
 
+
+
+            # Scrolling
+            # This approach works 90% of the time, but notably produces very incorrect results
+            # on mus1_bldg_world_1,2,3
 
             # Clear all anims in all cases
             if material.node_tree.animation_data:
