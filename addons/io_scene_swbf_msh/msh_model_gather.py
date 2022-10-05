@@ -354,6 +354,14 @@ def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveSh
     """ Gets the CollisionPrimitiveShape of an object or raises an error if
         it can't. """
 
+    # arc170 fighter has examples of box colliders without proper naming
+    # and cis_hover_aat has a cylinder which is named p_vehiclesphere.
+    # To export these properly we must check the collision_prim property
+    # that was assigned on import BEFORE looking at the name.
+    prim_type = obj.swbf_msh_coll_prim.prim_type
+    if prim_type in [item.value for item in CollisionPrimitiveShape]:
+        return CollisionPrimitiveShape(prim_type)
+
     name = obj.name.lower()
 
     if "sphere" in name or "sphr" in name or "spr" in name:
@@ -362,11 +370,6 @@ def get_collision_primitive_shape(obj: bpy.types.Object) -> CollisionPrimitiveSh
         return CollisionPrimitiveShape.CYLINDER
     if "box" in name or "cube" in name or "cuboid" in name:
         return CollisionPrimitiveShape.BOX
-
-    # arc170 fighter has examples of box colliders without proper naming
-    prim_type = obj.swbf_msh_coll_prim.prim_type
-    if prim_type in [item.value for item in CollisionPrimitiveShape]:
-        return CollisionPrimitiveShape(prim_type)
 
     raise RuntimeError(f"Object '{obj.name}' has no primitive type specified in it's name!")
 
