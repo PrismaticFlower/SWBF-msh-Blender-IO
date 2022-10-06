@@ -9,7 +9,7 @@ from mathutils import Vector
 from .msh_model import Model, Animation, ModelType
 from .msh_scene import Scene, SceneAABB
 from .msh_model_gather import gather_models
-from .msh_model_utilities import sort_by_parent, has_multiple_root_models, reparent_model_roots, get_model_world_matrix, inject_dummy_data
+from .msh_model_utilities import make_null, validate_geometry_segment, sort_by_parent, has_multiple_root_models, reparent_model_roots, get_model_world_matrix, inject_dummy_data
 from .msh_model_triangle_strips import create_models_triangle_strips
 from .msh_material import *
 from .msh_material_gather import gather_materials
@@ -52,6 +52,20 @@ def create_scene(generate_triangle_strips: bool, apply_modifiers: bool, export_t
             if model.geometry:
                 for segment in model.geometry:
                     segment.triangle_strips = segment.triangles
+
+    # After generating triangle strips we must prune any segments that don't have
+    # them, or else ZE and most versions of ZETools will crash.
+
+    # We could also make models with no valid segments nulls, since they might as well be, 
+    # but that could have unforseeable consequences further down the modding pipeline
+    # and is not necessary to avoid the aforementioned crashes...
+    for model in scene.models:
+        if model.geometry is not None:
+            # Doing this in msh_model_gather would be messy and the presence/absence
+            # of triangle strips is required for a validity check.
+            model.geometry = [segment for segment in model.geometry if validate_geometry_segment(segment)]
+            #if not model.geometry:
+            #    make_null(model)
 
     if has_multiple_root_models(scene.models):
         scene.models = reparent_model_roots(scene.models)

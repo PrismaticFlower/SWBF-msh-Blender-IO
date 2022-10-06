@@ -8,6 +8,25 @@ import math
 from mathutils import Vector, Matrix
 
 
+
+# Convert model with geometry to null.
+# Currently not used, but could be necessary in the future.
+def make_null(model : Model):
+    model.model_type = ModelType.NULL
+    bone_map = None
+    geometry = None
+
+
+# I think this is all we need to check for to avoid 
+# common ZE/ZETools crashes...
+def validate_geometry_segment(segment : GeometrySegment) -> bool:
+    if not segment.positions or not segment.triangle_strips:
+        return False
+    else:
+        return True
+
+
+
 def inject_dummy_data(model : Model):
     """  Adds a triangle and material to the model (scene root).  Needed to export zenasst-compatible skeletons. """
     model.hidden = True
