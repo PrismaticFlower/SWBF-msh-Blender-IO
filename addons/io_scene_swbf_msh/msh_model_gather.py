@@ -40,6 +40,10 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
     # Here we just keep track of all names, regardless of origin
     exported_object_names: Set[str] = set() 
 
+    # Me must keep track of hidden objects separately because
+    # evaluated_get clears hidden status
+    blender_objects_to_hide: Set[str] = set()
+
     # Armature must be processed before everything else!
 
     # In this loop we also build a set of names of all objects
@@ -47,6 +51,10 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
     # groups that do not reference exported objects in the main 
     # model building loop below this one.
     for uneval_obj in select_objects(export_target):
+
+        if get_is_model_hidden(uneval_obj):
+            blender_objects_to_hide.add(uneval_obj.name)
+
         if uneval_obj.type == "ARMATURE" and not armature_found:
             # Keep track of the armature, we don't want to process > 1!
             armature_found = uneval_obj.evaluated_get(depsgraph) if apply_modifiers else uneval_obj
@@ -80,7 +88,6 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
             model = Model()
             model.name = obj.name
             model.model_type = ModelType.NULL if skeleton_only else get_model_type(obj, armature_found)
-            model.hidden = get_is_model_hidden(obj)
 
             transform = obj.matrix_local
 
@@ -132,6 +139,8 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
 
         if get_is_collision_primitive(obj):
             model.collisionprimitive = get_collision_primitive(obj)
+
+        model.hidden = model.name in blender_objects_to_hide
 
         models_list.append(model)
 
@@ -289,6 +298,9 @@ def get_model_type(obj: bpy.types.Object, armature_found: bpy.types.Object) -> M
 
 def get_is_model_hidden(obj: bpy.types.Object) -> bool:
     """ Gets if a Blender object should be marked as hidden in the .msh file. """
+
+    if obj.hide_get():
+        return True
 
     name = obj.name.lower()
 
@@ -482,6 +494,7 @@ def expand_armature(armature: bpy.types.Object) -> Dict[str, Model]:
 
         model.model_type = ModelType.BONE if bone.name in proper_BONES else ModelType.NULL
         model.name = bone.name
+        model.hidden = True
         model.transform.rotation = convert_rotation_space(local_rotation)
         model.transform.translation = convert_vector_space(local_translation)
 
