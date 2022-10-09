@@ -1,7 +1,7 @@
 bl_info = {
     'name': 'SWBF .msh Import-Export',
     'author': 'Will Snyder, SleepKiller',
-    "version": (1, 0, 0),
+    "version": (1, 2, 1),
     'blender': (2, 80, 0),
     'location': 'File > Import-Export',
     'description': 'Export as SWBF .msh file',
