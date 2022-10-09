@@ -73,7 +73,7 @@ class Model:
     name: str = "Model"
     parent: str = ""
     model_type: ModelType = ModelType.NULL
-    hidden: bool = True
+    hidden: bool = False
 
     transform: ModelTransform = field(default_factory=ModelTransform)
 

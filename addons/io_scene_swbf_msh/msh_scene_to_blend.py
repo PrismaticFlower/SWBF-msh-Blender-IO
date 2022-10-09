@@ -195,6 +195,5 @@ def extract_scene(filepath: str, scene: Scene):
     for model in scene.models:
         if model.name in model_map:
             obj = model_map[model.name]
-            if get_is_model_hidden(obj) and len(obj.children) == 0:
-                obj.hide_set(True)
+            obj.hide_set(model.hidden or get_is_model_hidden(obj))
 
