@@ -203,7 +203,9 @@ def _read_modl(modl: Reader, materials_list: List[Material]) -> Model:
 
                 global model_counter
                 global mndx_remap
-                mndx_remap[index] = model_counter
+
+                if index not in mndx_remap:
+                    mndx_remap[index] = model_counter
 
                 model_counter += 1
 
