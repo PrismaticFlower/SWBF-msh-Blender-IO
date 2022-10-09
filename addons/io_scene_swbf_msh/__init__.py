@@ -118,6 +118,11 @@ class ExportMSH(Operator, ExportHelper):
 
     def execute(self, context):
 
+        if 'SELECTED' in self.export_target and len(bpy.context.selected_objects) == 0:
+            raise Exception("{} was chosen, but you have not selected any objects. "
+                            " Don't forget to unhide all the objects you wish to select!".format(self.export_target))
+
+
         scene, armature_obj = create_scene(
                                 generate_triangle_strips=self.generate_triangle_strips, 
                                 apply_modifiers=self.apply_modifiers,
