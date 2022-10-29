@@ -165,19 +165,23 @@ def _read_matd(matd: Reader) -> Material:
 
         elif next_header == "TX0D":
             with matd.read_child() as tx0d:
-                mat.texture0 = tx0d.read_string()
+                if tx0d.bytes_remaining() > 0:
+                    mat.texture0 = tx0d.read_string()
 
         elif next_header == "TX1D":
             with matd.read_child() as tx1d:
-                mat.texture1 = tx1d.read_string()
+                if tx1d.bytes_remaining() > 0:
+                    mat.texture1 = tx1d.read_string()
 
         elif next_header == "TX2D":
             with matd.read_child() as tx2d:
-                mat.texture2 = tx2d.read_string()
+                if tx2d.bytes_remaining() > 0:
+                    mat.texture2 = tx2d.read_string()
 
         elif next_header == "TX3D":
             with matd.read_child() as tx3d:
-                mat.texture3 = tx3d.read_string()
+                if tx3d.bytes_remaining() > 0:
+                    mat.texture3 = tx3d.read_string()
 
         else:
             matd.skip_bytes(1)

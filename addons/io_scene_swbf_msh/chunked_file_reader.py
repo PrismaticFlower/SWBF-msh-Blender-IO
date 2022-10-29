@@ -138,6 +138,9 @@ class Reader:
     def how_much_left(self, pos):
         return self.end_pos - pos
 
+    def bytes_remaining(self):
+        return self.end_pos - self.file.tell()
+
     def skip_until(self, header):
         while (self.could_have_child() and header not in self.peak_next_header()):
             self.skip_bytes(1)
