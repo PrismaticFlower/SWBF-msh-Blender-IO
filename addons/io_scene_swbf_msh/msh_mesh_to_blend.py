@@ -32,7 +32,38 @@ def validate_segment_geometry(segment : GeometrySegment):
     return True
 
 
-def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, bpy.types.Material]) -> bpy.types.Object:
+def get_shadow_geometry(model: Model):
+    for segment in model.geometry:
+        if segment.shadow_geometry is not None:
+            return segment.shadow_geometry
+    return None
+
+
+
+# SHDW mesh info is of a different form from
+# normal segment geometry
+def model_to_shadow_mesh(model: Model, shadow_geometry : ShadowGeometry):
+
+    blender_mesh = bpy.data.meshes.new(model.name)
+
+    # As is the case with normal geometry processing,
+    # these will contain flattened lists
+    vertex_positions = [convert_vector_space(position) for position in shadow_geometry.positions]
+    edges = shadow_geometry.edges
+
+    # This is all we have to do for vertices, other attributes are done per-loop
+    blender_mesh.vertices.add(len(vertex_positions))
+    blender_mesh.vertices.foreach_set("co", [component for vertex_position in vertex_positions for component in vertex_position])
+    
+    blender_mesh.edges.add(len(edges))
+    blender_mesh.edges.foreach_set("vertices", [index for edge in edges for index in (edge[0],edges[edge[1]][0])])    
+
+    blender_mesh_object = bpy.data.objects.new(model.name, blender_mesh)
+
+    return blender_mesh_object
+
+
+def model_to_mesh(model: Model, scene: Scene, materials_map : Dict[str, bpy.types.Material]) -> bpy.types.Object:
 
     blender_mesh = bpy.data.meshes.new(model.name)
 
@@ -113,7 +144,7 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
 
 
         # LOOPS 
-
+        
         flat_indices = [index for polygon in polygons for index in polygon]
 
         blender_mesh.loops.add(len(flat_indices))
@@ -188,4 +219,17 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
 
 
     return blender_mesh_object
+
+
+
+
+
+def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, bpy.types.Material]) -> bpy.types.Object:
+    
+    shadow_geometry = get_shadow_geometry(model)
+    if shadow_geometry is not None:
+        return model_to_shadow_mesh(model, shadow_geometry)
+    else:
+        return model_to_mesh(model, scene, materials_map)
+
 
