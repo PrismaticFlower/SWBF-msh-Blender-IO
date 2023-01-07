@@ -387,7 +387,29 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
             # TODO: Dont know if/how to handle trailing 0 bug yet: https://schlechtwetterfront.github.io/ze_filetypes/msh.html#STRP
             #if segm.read_u16 != 0: 
             #    segm.skip_bytes(-2)
+       
+        elif next_header == "SHDW":
+            
+            shadow_geometry = ShadowGeometry()
 
+            with segm.read_child() as shdw:
+                #print("Found shadow chunk")
+
+                num_positions = shdw.read_u32()
+                #print(f"  Num verts in shadow mesh: {num_positions}")
+                shadow_geometry.positions = [shdw.read_vec() for _ in range(num_positions)]
+
+                num_edges = shdw.read_u32()
+                #print(f" Num edges in shadow mesh: {num_edges}")
+                edges = []
+                for i in range(num_edges):
+                    edges.append(tuple(shdw.read_u16(4)))
+                    #print("    " + str(edges[-1]))
+                shadow_geometry.edges = edges
+
+            geometry_seg.shadow_geometry = shadow_geometry    
+
+                
         elif next_header == "WGHT":
             with segm.read_child() as wght:
                 

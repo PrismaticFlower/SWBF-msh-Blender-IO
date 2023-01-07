@@ -39,6 +39,20 @@ class VertexWeight:
     weight: float = 1.0
     bone: int = 0
 
+
+@dataclass 
+class ShadowGeometry:
+    """ Class representing 'SHDW' chunks. """
+
+    # Perhaps I could just use the positions list in the segment
+    # class, but I don't know if SHDW info can coexist with 
+    # a normal geometry segment...
+    positions: List[Vector] = field(default_factory=list)
+   
+    # The second two entries may not be necessary...
+    edges: List[Tuple[int,int,int,int]] = field(default_factory=list)
+
+
 @dataclass
 class GeometrySegment:
     """ Class representing a 'SEGM' section in a .msh file. """
@@ -56,6 +70,7 @@ class GeometrySegment:
     triangles: List[List[int]] = field(default_factory=list)
     triangle_strips: List[List[int]] = None
 
+    shadow_geometry: ShadowGeometry = None
 
 @dataclass
 class CollisionPrimitive:
