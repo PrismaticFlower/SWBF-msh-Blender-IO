@@ -49,14 +49,87 @@ def model_to_shadow_mesh(model: Model, shadow_geometry : ShadowGeometry):
     # As is the case with normal geometry processing,
     # these will contain flattened lists
     vertex_positions = [convert_vector_space(position) for position in shadow_geometry.positions]
-    edges = shadow_geometry.edges
-
-    # This is all we have to do for vertices, other attributes are done per-loop
+    
+    # Vertices
     blender_mesh.vertices.add(len(vertex_positions))
     blender_mesh.vertices.foreach_set("co", [component for vertex_position in vertex_positions for component in vertex_position])
-    
-    blender_mesh.edges.add(len(edges))
-    blender_mesh.edges.foreach_set("vertices", [index for edge in edges for index in (edge[0],edges[edge[1]][0])])    
+
+
+    def faces_from_half_edges(half_edges : List[Tuple[int,int,int,int]]) -> List[List[int]]:
+        faces = []
+        visited_edges = [False] * len(half_edges)
+        
+        for i in range(len(half_edges)):
+
+            if visited_edges[i]:
+                continue
+
+            curr_edge = half_edges[i]
+
+            curr_index = curr_edge[0]
+            starting_index = curr_index
+
+            face_length = 0
+            face_temp = [0] * 5
+
+            while True:
+                
+                if face_length + 1> len(face_temp):
+                    face_temp.append(curr_index)
+                else:    
+                    face_temp[face_length] = curr_index
+
+                face_length += 1
+
+                curr_edge = half_edges[curr_edge[1]]
+                curr_index = curr_edge[0]
+                
+                if (curr_index == starting_index):
+                    break
+
+            #print(f"Added a face of length: {face_length}")
+            faces.append(face_temp[0:face_length])
+
+        return faces
+
+    polygons = faces_from_half_edges(shadow_geometry.edges)
+
+    # LOOPS 
+    flat_indices = [index for polygon in polygons for index in polygon]
+    blender_mesh.loops.add(len(flat_indices))
+
+    # Position indices
+    blender_mesh.loops.foreach_set("vertex_index", flat_indices)
+
+
+
+    # POLYGONS/FACES
+    blender_mesh.polygons.add(len(polygons))
+
+    # Indices of starting loop for each polygon
+    polygon_loop_start_indices = [0] * len(polygons)
+    current_polygon_start_index = 0
+
+    # Number of loops in this polygon.  Polygon i will use
+    # loops from polygon_loop_start_indices[i] to 
+    # polygon_loop_start_indices[i] + polygon_loop_totals[i]
+    polygon_loop_totals = [0] * len(polygons)
+
+    for i,polygon in enumerate(polygons):
+        polygon_loop_start_indices[i] = current_polygon_start_index
+
+        current_polygon_length = len(polygon)
+        current_polygon_start_index += current_polygon_length
+
+        polygon_loop_totals[i] = current_polygon_length
+
+    blender_mesh.polygons.foreach_set("loop_start", polygon_loop_start_indices)
+    blender_mesh.polygons.foreach_set("loop_total", polygon_loop_totals)
+
+    blender_mesh.validate(clean_customdata=False) 
+    blender_mesh.update()
+
+    #sv_name = model.name if model.name.startswith("sv_") else "sv_" + model.name
 
     blender_mesh_object = bpy.data.objects.new(model.name, blender_mesh)
 
@@ -163,25 +236,24 @@ def model_to_mesh(model: Model, scene: Scene, materials_map : Dict[str, bpy.type
 
 
         # POLYGONS/FACES
-
         blender_mesh.polygons.add(len(polygons))
 
         # Indices of starting loop for each polygon
-        polygon_loop_start_indices = []
+        polygon_loop_start_indices = [0] * len(polygons)
         current_polygon_start_index = 0
 
         # Number of loops in this polygon.  Polygon i will use
         # loops from polygon_loop_start_indices[i] to 
         # polygon_loop_start_indices[i] + polygon_loop_totals[i]
-        polygon_loop_totals = []
+        polygon_loop_totals = [0] * len(polygons)
 
-        for polygon in polygons:
-            polygon_loop_start_indices.append(current_polygon_start_index)
+        for i,polygon in enumerate(polygons):
+            polygon_loop_start_indices[i] = current_polygon_start_index
 
             current_polygon_length = len(polygon)
             current_polygon_start_index += current_polygon_length
 
-            polygon_loop_totals.append(current_polygon_length)
+            polygon_loop_totals[i] = current_polygon_length
 
         blender_mesh.polygons.foreach_set("loop_start", polygon_loop_start_indices)
         blender_mesh.polygons.foreach_set("loop_total", polygon_loop_totals)

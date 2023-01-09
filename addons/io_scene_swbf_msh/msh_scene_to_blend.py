@@ -44,10 +44,9 @@ def extract_models(scene: Scene, materials_map : Dict[str, bpy.types.Material]) 
             new_obj = bpy.data.objects.new(model.name, None)
             new_obj.empty_display_size = 1
             new_obj.empty_display_type = 'PLAIN_AXES' 
-
+            new_obj.name = model.name
 
         model_map[model.name] = new_obj
-        new_obj.name = model.name
 
         if model.parent:
             new_obj.parent = model_map[model.parent]
