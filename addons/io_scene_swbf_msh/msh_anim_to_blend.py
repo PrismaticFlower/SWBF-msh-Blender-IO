@@ -32,13 +32,17 @@ def extract_and_apply_anim(filename : str, scene : Scene):
 
     if scene.animation is None:
         raise Exception("No animation found in msh file!")
-    
     else:
         head, tail = os.path.split(filename)
         anim_name = tail.split(".")[0]
 
         if anim_name in bpy.data.actions:
             bpy.data.actions.remove(bpy.data.actions[anim_name], do_unlink=True)
+
+            for nt in arma.animation_data.nla_tracks:
+                if anim_name == nt.strips[0].name:
+                    arma.animation_data.nla_tracks.remove(nt)
+
 
         action = bpy.data.actions.new(anim_name)
         action.use_fake_user = True
@@ -47,7 +51,7 @@ def extract_and_apply_anim(filename : str, scene : Scene):
             arma.animation_data_create()
 
 
-        # Record the starting transforms of each bone.  Pose space is relative 
+        # Record the starting transforms of each bone.  Pose space is relative
         # to bones starting transforms.  Starting = in edit mode
         bone_bind_poses = {}
 
@@ -56,7 +60,7 @@ def extract_and_apply_anim(filename : str, scene : Scene):
 
         for edit_bone in arma.data.edit_bones:
             if edit_bone.parent:
-                bone_local = edit_bone.parent.matrix.inverted() @ edit_bone.matrix 
+                bone_local = edit_bone.parent.matrix.inverted() @ edit_bone.matrix
             else:
                 bone_local = arma.matrix_local @ edit_bone.matrix
 
@@ -72,8 +76,8 @@ def extract_and_apply_anim(filename : str, scene : Scene):
 
                 translation_frames, rotation_frames = scene.animation.bone_frames[to_crc(bone.name)]
 
-                loc_data_path = "pose.bones[\"{}\"].location".format(bone.name) 
-                rot_data_path = "pose.bones[\"{}\"].rotation_quaternion".format(bone.name) 
+                loc_data_path = "pose.bones[\"{}\"].location".format(bone.name)
+                rot_data_path = "pose.bones[\"{}\"].rotation_quaternion".format(bone.name)
 
 
                 fcurve_rot_w = action.fcurves.new(rot_data_path, index=0, action_group=bone.name)
@@ -103,4 +107,5 @@ def extract_and_apply_anim(filename : str, scene : Scene):
                     fcurve_loc_z.keyframe_points.insert(i,t.z)
 
         arma.animation_data.action = action
-
+        track = arma.animation_data.nla_tracks.new()
+        track.strips.new(action.name, action.frame_range[0], action)
