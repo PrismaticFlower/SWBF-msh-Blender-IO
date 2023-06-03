@@ -43,7 +43,6 @@ def extract_and_apply_anim(filename : str, scene : Scene):
                 if anim_name == nt.strips[0].name:
                     arma.animation_data.nla_tracks.remove(nt)
 
-
         action = bpy.data.actions.new(anim_name)
         action.use_fake_user = True
 
@@ -106,6 +105,5 @@ def extract_and_apply_anim(filename : str, scene : Scene):
                     fcurve_loc_y.keyframe_points.insert(i,t.y)
                     fcurve_loc_z.keyframe_points.insert(i,t.z)
 
-        arma.animation_data.action = action
         track = arma.animation_data.nla_tracks.new()
         track.strips.new(action.name, action.frame_range[0], action)
