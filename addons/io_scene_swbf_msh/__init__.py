@@ -13,9 +13,9 @@ bl_info = {
 }
 
 # Taken from glTF-Blender-IO, because I do not understand Python that well
-# (this is the first thing of substance I've created in it) and just wanted 
+# (this is the first thing of substance I've created in it) and just wanted
 # script reloading to work.
-# 
+#
 # https://github.com/KhronosGroup/glTF-Blender-IO
 #
 # Copyright 2018-2019 The glTF-Blender-IO authors.
@@ -124,7 +124,7 @@ class ExportMSH(Operator, ExportHelper):
 
 
         scene, armature_obj = create_scene(
-                                generate_triangle_strips=self.generate_triangle_strips, 
+                                generate_triangle_strips=self.generate_triangle_strips,
                                 apply_modifiers=self.apply_modifiers,
                                 export_target=self.export_target,
                                 skel_only=self.animation_export != 'NONE') # Exclude geometry data (except root stuff) if we're doing anims
@@ -141,7 +141,7 @@ class ExportMSH(Operator, ExportHelper):
             set_scene_animation(scene, armature_obj)
             write_scene_to_file(self.filepath, scene)
 
-        elif self.animation_export == 'BATCH':    
+        elif self.animation_export == 'BATCH':
             export_dir = self.filepath if os.path.isdir(self.filepath) else os.path.dirname(self.filepath)
 
             for action in bpy.data.actions:
@@ -162,14 +162,14 @@ def menu_func_export(self, context):
 
 
 class ImportMSH(Operator, ImportHelper):
-    """ Import an SWBF .msh file. """
+    """ Import SWBF .msh file(s). """
 
     bl_idname = "swbf_msh.import"
     bl_label = "Import SWBF .msh File(s)"
     filename_ext = ".msh"
 
     files: CollectionProperty(
-            name="File Path",
+            name="File Path(s)",
             type=bpy.types.OperatorFileListElement,
             )
 
@@ -181,7 +181,7 @@ class ImportMSH(Operator, ImportHelper):
 
     animation_only: BoolProperty(
         name="Import Animation(s)",
-        description="Import on or more animations from the selected files and append each as a new Action to currently selected Armature.",
+        description="Import one or more animations from the selected files and append each as a new Action to currently selected Armature.",
         default=False
     )
 
@@ -193,9 +193,9 @@ class ImportMSH(Operator, ImportHelper):
             if filepath.endswith(".zaabin") or filepath.endswith(".zaa"):
                 extract_and_apply_munged_anim(filepath)
             else:
-                with open(filepath, 'rb') as input_file:              
+                with open(filepath, 'rb') as input_file:
                     scene = read_scene(input_file, self.animation_only)
-                    
+
                 if not self.animation_only:
                     extract_scene(filepath, scene)
                 else:
