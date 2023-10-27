@@ -39,12 +39,9 @@ def pack_color(color) -> int:
     return packed
 
 def unpack_color(color: int) -> List[float]:
-
-    mask = int(0x000000ff)
-
-    r = (color & (mask << 16)) / 255.0
-    g = (color & (mask << 8)) / 255.0
-    b = (color & mask) / 255.0
-    a = (color & (mask << 24)) / 255.0
+    r = (color >> 16 & 0xFF) / 255.0
+    g = (color >> 8  & 0xFF) / 255.0
+    b = (color >> 0  & 0xFF) / 255.0
+    a = (color >> 24 & 0xFF) / 255.0
 
     return [r,g,b,a]
