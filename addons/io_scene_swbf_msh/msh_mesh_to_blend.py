@@ -40,6 +40,7 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
     vertex_positions = []
     vertex_uvs = []
     vertex_normals = []
+    vertex_colors = []
 
     # Keeps track of which vertices each group of weights affects
     # i.e. maps offset of vertices -> weights that affect them
@@ -58,6 +59,7 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
 
 
     if model.geometry:
+        geometry_has_colors = any(segment.colors for segment in model.geometry)
 
         for segment in model.geometry:
 
@@ -76,6 +78,11 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
             if segment.normals:
                 vertex_normals += [tuple(convert_vector_space(n)) for n in segment.normals]
 
+            if segment.colors:
+                vertex_colors.extend(segment.colors)
+            elif geometry_has_colors:
+                [vertex_colors.extend([0.0, 0.0, 0.0, 1.0]) for _ in range(len(segment.positions))]
+            
             if segment.weights:
                 vertex_weights_offsets[polygon_index_offset] = segment.weights
 
@@ -111,7 +118,6 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
         blender_mesh.vertices.add(len(vertex_positions))
         blender_mesh.vertices.foreach_set("co", [component for vertex_position in vertex_positions for component in vertex_position])
 
-
         # LOOPS 
 
         flat_indices = [index for polygon in polygons for index in polygon]
@@ -129,6 +135,10 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
         blender_mesh.uv_layers.new(do_init=False)
         blender_mesh.uv_layers[0].data.foreach_set("uv", [component for i in flat_indices for component in vertex_uvs[i]])
 
+        # Colors
+        if geometry_has_colors:
+            blender_mesh.color_attributes.new("COLOR0", "FLOAT_COLOR", "POINT")
+            blender_mesh.color_attributes[0].data.foreach_set("color", vertex_colors)
 
 
         # POLYGONS/FACES
