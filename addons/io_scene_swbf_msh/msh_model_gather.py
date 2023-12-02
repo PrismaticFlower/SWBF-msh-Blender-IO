@@ -179,7 +179,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -
     vertex_remap: List[Dict[Tuple[int, int], int]] = [dict() for i in range(material_count)]
     polygons: List[Set[int]] = [set() for i in range(material_count)]
 
-    if mesh.vertex_colors.active is not None:
+    if mesh.color_attributes.active_color is not None:
         for segment in segments:
             segment.colors = []
 
@@ -215,8 +215,10 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -
                 yield mesh.uv_layers.active.data[loop_index].uv.y
 
             if segment.colors is not None:
-                for v in mesh.vertex_colors.active.data[loop_index].color:
-                    yield v
+                data_type = mesh.color_attributes.active_color.data_type
+                if data_type == "FLOAT_COLOR" or data_type == "BYTE_COLOR":
+                    for v in mesh.color_attributes.active_color.data[vertex_index].color:
+                        yield v
 
             if segment.weights is not None:
                 for v in mesh.vertices[vertex_index].groups:
@@ -245,7 +247,9 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -
             segment.texcoords.append(mesh.uv_layers.active.data[loop_index].uv.copy())
 
         if segment.colors is not None:
-            segment.colors.append(list(mesh.vertex_colors.active.data[loop_index].color))
+            data_type = mesh.color_attributes.active_color.data_type
+            if data_type == "FLOAT_COLOR" or data_type == "BYTE_COLOR":
+                segment.colors.append(list(mesh.color_attributes.active_color.data[vertex_index].color))
 
         if segment.weights is not None:
             groups = mesh.vertices[vertex_index].groups
