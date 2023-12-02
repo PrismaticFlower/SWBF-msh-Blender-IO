@@ -180,8 +180,10 @@ to provide an exact emulation"""
 
             texture_input_nodes.append(texImage)
 
+            specular_key = "Specular" if bpy.app.version < (4, 0, 0) else "Specular IOR Level"
+
             bsdf.inputs["Roughness"].default_value = 1.0
-            bsdf.inputs["Specular"].default_value = 0.0
+            bsdf.inputs[specular_key].default_value = 0.0
 
             material.use_backface_culling = not bool(mat_props.doublesided)
 
