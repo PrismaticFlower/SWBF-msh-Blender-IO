@@ -215,10 +215,11 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -
                 yield mesh.uv_layers.active.data[loop_index].uv.y
 
             if segment.colors is not None:
-                data_type = mesh.color_attributes.active_color.data_type
-                if data_type == "FLOAT_COLOR" or data_type == "BYTE_COLOR":
-                    for v in mesh.color_attributes.active_color.data[vertex_index].color:
-                        yield v
+                active_color = mesh.color_attributes.active_color
+                data_index = loop_index if active_color.domain == "CORNER" else vertex_index
+
+                for v in mesh.color_attributes.active_color.data[data_index].color:
+                    yield v
 
             if segment.weights is not None:
                 for v in mesh.vertices[vertex_index].groups:
@@ -247,9 +248,10 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -
             segment.texcoords.append(mesh.uv_layers.active.data[loop_index].uv.copy())
 
         if segment.colors is not None:
-            data_type = mesh.color_attributes.active_color.data_type
-            if data_type == "FLOAT_COLOR" or data_type == "BYTE_COLOR":
-                segment.colors.append(list(mesh.color_attributes.active_color.data[vertex_index].color))
+            active_color = mesh.color_attributes.active_color
+            data_index = loop_index if active_color.domain == "CORNER" else vertex_index
+
+            segment.colors.append(list(active_color.data[data_index].color))
 
         if segment.weights is not None:
             groups = mesh.vertices[vertex_index].groups
