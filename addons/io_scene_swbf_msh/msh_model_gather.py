@@ -74,7 +74,6 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
             pass
 
     for uneval_obj in blender_objects_to_export:
-
         obj = uneval_obj.evaluated_get(depsgraph) if apply_modifiers else uneval_obj
 
         check_for_bad_lod_suffix(obj)
@@ -123,8 +122,10 @@ def gather_models(apply_modifiers: bool, export_target: str, skeleton_only: bool
                 model.bone_map = [ group.name for group in valid_vgroups ]
 
             mesh = obj.to_mesh()
-            model.geometry = create_mesh_geometry(mesh, valid_vgroup_indices)
-
+            if get_is_shadow_volume(mesh):
+                model.geometry = create_shadow_geometry(mesh)
+            else:
+                model.geometry = create_mesh_geometry(mesh, valid_vgroup_indices)
             obj.to_mesh_clear()
 
             _, _, world_scale = obj.matrix_world.decompose()
@@ -162,6 +163,13 @@ def create_parents_set() -> Set[str]:
 
     return parents
 
+def get_is_shadow_volume(mesh: bpy.types.Mesh) -> bool:
+    """ Gets if a Blender mesh represents a shadow volume. """
+
+    name = mesh.name.lower()
+
+    return name.startswith("shadowvolume")
+
 def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -> List[GeometrySegment]:
     """ Creates a list of GeometrySegment objects from a Blender mesh.
         Does NOT create triangle strips in the GeometrySegment however. """
@@ -179,7 +187,7 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -
     vertex_remap: List[Dict[Tuple[int, int], int]] = [dict() for i in range(material_count)]
     polygons: List[Set[int]] = [set() for i in range(material_count)]
 
-    if mesh.vertex_colors.active is not None:
+    if mesh.color_attributes.active_color is not None:
         for segment in segments:
             segment.colors = []
 
@@ -215,8 +223,10 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -
                 yield mesh.uv_layers.active.data[loop_index].uv.y
 
             if segment.colors is not None:
-                for v in mesh.vertex_colors.active.data[loop_index].color:
-                    yield v
+                data_type = mesh.color_attributes.active_color.data_type
+                if data_type == "FLOAT_COLOR" or data_type == "BYTE_COLOR":
+                    for v in mesh.color_attributes.active_color.data[vertex_index].color:
+                        yield v
 
             if segment.weights is not None:
                 for v in mesh.vertices[vertex_index].groups:
@@ -245,7 +255,9 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -
             segment.texcoords.append(mesh.uv_layers.active.data[loop_index].uv.copy())
 
         if segment.colors is not None:
-            segment.colors.append(list(mesh.vertex_colors.active.data[loop_index].color))
+            data_type = mesh.color_attributes.active_color.data_type
+            if data_type == "FLOAT_COLOR" or data_type == "BYTE_COLOR":
+                segment.colors.append(list(mesh.color_attributes.active_color.data[vertex_index].color))
 
         if segment.weights is not None:
             groups = mesh.vertices[vertex_index].groups
@@ -267,6 +279,74 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -
             segment.polygons.append([remap[(v, l)] for v, l in zip(poly.vertices, poly.loop_indices)])
 
     return segments
+
+def create_shadow_geometry(mesh: bpy.types.Mesh) -> List[GeometrySegment]:
+    USHORT_MAX = 65535
+
+    material_count = max(len(mesh.materials), 1)
+    segment = GeometrySegment()
+    segment.shadow_geometry = ShadowGeometry()
+        
+    for vertex in mesh.vertices:
+        segment.shadow_geometry.positions.append(convert_vector_space(vertex.co))
+    
+    def find_twin_edge(edge: Tuple[int, int], faces: bpy.types.MeshPolygons, current_face_index):
+        edge_reversed = edge[::-1]
+        face_index = 0
+        edge_index = 0
+        for face in faces:
+            # no need to return the same polygon:
+            if face_index == current_face_index:
+                face_index += 1
+                edge_index += len(face.vertices)
+                continue
+            #print("FACE: ", list(face.vertices))
+            for i in range(len(face.vertices)):
+                # if last vertex, then tmp = [last, first]
+                if i == (len(face.vertices) - 1):
+                    tmp = (face.vertices[i], face.vertices[0])
+                else:
+                    tmp = face.vertices[i : i + 2]
+                
+                #print(tmp)
+                
+                # return second vertex in the edge
+                if tmp == edge:
+                    return edge_index + i + 1
+                elif tmp == edge_reversed:
+                    return edge_index + i
+            face_index += 1
+            edge_index += len(face.vertices)
+        # in theory this is impossible,
+        # because shadowvolumes should be closed surfaces
+        # (without holes - each polygon has adjacent polygon):
+        assert False, "Can't find twin edge (shadowvolume should be closed surface - without holes)"
+        return -1
+    # Blender stores 2 vertices per 1 edge, but .msh - 1 vertex per 1 edge:
+    segment.shadow_geometry.edges = [(0, 0, 0, 0)] * (2 * len(mesh.edges))
+    face_index = 0
+    edge_index = 0
+    for face in mesh.polygons:
+        last_vertex = len(face.vertices) - 1 # last vertex in face
+        for vertex_index in range(len(face.vertices)):
+            if vertex_index == last_vertex:
+                current_vertex = face.vertices[vertex_index]
+                next_vertex = face.vertices[0] # first vertex
+                next_edge = edge_index - last_vertex
+            else:
+                current_vertex = face.vertices[vertex_index]
+                next_vertex = face.vertices[vertex_index + 1]
+                next_edge = edge_index + 1
+            
+            segment.shadow_geometry.edges[edge_index] = (current_vertex,
+                                                         next_edge,
+                                                         find_twin_edge((current_vertex, next_vertex), mesh.polygons, face_index),
+                                                         USHORT_MAX)
+            
+            edge_index += 1
+        face_index += 1
+    
+    return [segment]
 
 def get_model_type(obj: bpy.types.Object, armature_found: bpy.types.Object) -> ModelType:
     """ Get the ModelType for a Blender object. """

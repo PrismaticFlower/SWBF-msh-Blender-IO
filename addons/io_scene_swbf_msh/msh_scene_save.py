@@ -169,7 +169,6 @@ def _write_tran(tran: Writer, transform: ModelTransform):
     tran.write_f32(transform.translation.x, transform.translation.y, transform.translation.z)
 
 def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str, int]):
-
     with segm.create_child("MATI") as mati:
         mati.write_u32(material_index.get(segment.material_name, 0))
 
@@ -226,6 +225,23 @@ def _write_segm(segm: Writer, segment: GeometrySegment, material_index: Dict[str
 
             for index in islice(strip, 2, len(strip)):
                 strp.write_u16(index)
+
+    if segment.shadow_geometry is not None:
+        with segm.create_child("SHDW") as shdw:
+            shdw.write_u32(len(segment.shadow_geometry.positions))
+            #print(len(segment.shadow_geometry.positions))
+
+            for vertex in segment.shadow_geometry.positions:
+                shdw.write_f32(vertex.x, vertex.y, vertex.z)
+
+            shdw.write_u32(len(segment.shadow_geometry.edges))
+            #print(len(segment.shadow_geometry.edges))
+
+            for edge in segment.shadow_geometry.edges:
+                shdw.write_u16(edge[0])
+                shdw.write_u16(edge[1])
+                shdw.write_u16(edge[2])
+                shdw.write_u16(edge[3])
 
 '''
 SKINNING CHUNKS
