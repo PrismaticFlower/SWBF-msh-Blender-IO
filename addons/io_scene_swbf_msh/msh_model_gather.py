@@ -163,12 +163,13 @@ def create_parents_set() -> Set[str]:
 
     return parents
 
+# sv_ is another way to store shadow volumes (not in SHDW chunk)
 def get_is_shadow_volume(mesh: bpy.types.Mesh) -> bool:
     """ Gets if a Blender mesh represents a shadow volume. """
 
     name = mesh.name.lower()
 
-    return name.startswith("shadowvolume")
+    return (not name.startswith("sv_")) and ("shadowvolume" in name)
 
 def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -> List[GeometrySegment]:
     """ Creates a list of GeometrySegment objects from a Blender mesh.
