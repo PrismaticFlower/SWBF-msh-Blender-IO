@@ -49,7 +49,11 @@ class ShadowGeometry:
     # a normal geometry segment...
     positions: List[Vector] = field(default_factory=list)
    
-    # The second two entries may not be necessary...
+    # 0: index of the vertex
+    # 1: reference (index in a list) to the next edge in a polygon
+    # 2: reference (index in a list) to the twin edge list
+    # (edge of adjacent face that shares vertices with this edge)
+    # 3: always must be 65535
     edges: List[Tuple[int,int,int,int]] = field(default_factory=list)
 
 

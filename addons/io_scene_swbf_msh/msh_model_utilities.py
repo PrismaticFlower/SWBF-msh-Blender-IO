@@ -20,7 +20,7 @@ def make_null(model : Model):
 # I think this is all we need to check for to avoid 
 # common ZE/ZETools crashes...
 def validate_geometry_segment(segment : GeometrySegment) -> bool:
-    if not segment.positions or not segment.triangle_strips:
+    if (not segment.positions or not segment.triangle_strips) and not segment.shadow_geometry:
         return False
     else:
         return True

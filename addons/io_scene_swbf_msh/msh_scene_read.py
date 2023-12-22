@@ -404,10 +404,10 @@ def _read_segm(segm: Reader, materials_list: List[Material]) -> GeometrySegment:
                 edges = []
                 for i in range(num_edges):
                     edges.append(tuple(shdw.read_u16(4)))
-                    #print("    " + str(edges[-1]))
+                    #print(str(i) + ": " + str(edges[-1]))
                 shadow_geometry.edges = edges
 
-            geometry_seg.shadow_geometry = shadow_geometry    
+            geometry_seg.shadow_geometry = shadow_geometry
 
                 
         elif next_header == "WGHT":
