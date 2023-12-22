@@ -169,7 +169,7 @@ def get_is_shadow_volume(mesh: bpy.types.Mesh) -> bool:
 
     name = mesh.name.lower()
 
-    return (not name.startswith("sv_")) and ("shadowvolume" in name)
+    return (not name.startswith("sv_")) and ("shadow" in name)
 
 def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -> List[GeometrySegment]:
     """ Creates a list of GeometrySegment objects from a Blender mesh.
