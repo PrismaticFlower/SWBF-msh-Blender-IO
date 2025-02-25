@@ -128,7 +128,6 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
         blender_mesh.loops.foreach_set("vertex_index", flat_indices)
 
         # Normals
-        blender_mesh.create_normals_split()
         blender_mesh.loops.foreach_set("normal", [component for i in flat_indices for component in vertex_normals[i]])
 
         # UVs
@@ -175,7 +174,6 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
         reset_normals = [0.0] * (len(blender_mesh.loops) * 3)
         blender_mesh.loops.foreach_get("normal", reset_normals)
         blender_mesh.normals_split_custom_set(tuple(zip(*(iter(reset_normals),) * 3)))
-        blender_mesh.use_auto_smooth = True
 
 
     blender_mesh_object = bpy.data.objects.new(model.name, blender_mesh)
@@ -198,4 +196,3 @@ def model_to_mesh_object(model: Model, scene : Scene, materials_map : Dict[str, 
 
 
     return blender_mesh_object
-
