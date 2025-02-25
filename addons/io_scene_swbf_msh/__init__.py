@@ -2,7 +2,7 @@ bl_info = {
     'name': 'SWBF .msh Import-Export',
     'author': 'Will Snyder, PrismaticFlower',
     "version": (1, 3, 3),
-    'blender': (3, 0, 0),
+    'blender': (4, 3, 2),
     'location': 'File > Import-Export',
     'description': 'Export as SWBF .msh file',
     'warning': '',

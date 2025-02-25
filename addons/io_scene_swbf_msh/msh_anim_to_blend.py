@@ -107,4 +107,4 @@ def extract_and_apply_anim(filename : str, scene : Scene):
 
         arma.animation_data.action = action
         track = arma.animation_data.nla_tracks.new()
-        track.strips.new(action.name, action.frame_range[0], action)
+        track.strips.new(action.name, int(action.frame_range[0]), action)
