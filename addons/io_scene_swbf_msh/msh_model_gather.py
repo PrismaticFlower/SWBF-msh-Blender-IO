@@ -166,9 +166,6 @@ def create_mesh_geometry(mesh: bpy.types.Mesh, valid_vgroup_indices: Set[int]) -
     """ Creates a list of GeometrySegment objects from a Blender mesh.
         Does NOT create triangle strips in the GeometrySegment however. """
 
-    # We have to do this for all meshes to account for sharp edges
-    mesh.calc_normals_split()
-
     mesh.validate_material_indices()
     mesh.calc_loop_triangles()
 
