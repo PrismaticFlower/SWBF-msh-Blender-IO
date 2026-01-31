@@ -489,6 +489,8 @@ Additive transparency, objects behind the material will appear brighter because 
 #### Materials.Transparency Flags.Hardedged
 Hardedged/alpha cutout/clip transparency. Any point on the material with an alpha value below the threshold of 0.5/0x80/128 will be discarded. Useful for leaves, flowers, wire fences and all sorts.
 
+> See Also: [Materials.Flags.Doublesided](#materialsflagsdoublesided)
+
 ### Materials.Flags
 
 #### Materials.Flags.Unlit
@@ -508,7 +510,7 @@ Use specular lighting as well as diffuse lighting. A Gloss Map in the diffuse ma
 The Specular Colour controls the colour of the reflected specular highlights, like the diffuse map but for specular lighting and global across the material.
 
 #### Materials.Flags.Doublesided
-Disable backface culling, causing both sides of the surface to be drawn. Usually only the front facing surface is drawn.
+Enables doublesided blended transparency. Note that this was originally mistakenly miscategorized and docucmented by the addon as only disabling backface culling when in reality it also enables blended transparency.
 
 ### Materials.Data
 
