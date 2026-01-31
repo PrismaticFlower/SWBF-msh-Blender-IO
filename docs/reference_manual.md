@@ -510,7 +510,7 @@ Use specular lighting as well as diffuse lighting. A Gloss Map in the diffuse ma
 The Specular Colour controls the colour of the reflected specular highlights, like the diffuse map but for specular lighting and global across the material.
 
 #### Materials.Flags.Doublesided
-Enables doublesided blended transparency. Note that this was originally mistakenly miscategorized and docucmented by the addon as only disabling backface culling when in reality it also enables blended transparency.
+Enables doublesided blended transparency, unless Materials.Transparency Flags.Hardedged is enabled. In which case it enables doublesided hardged transparency. Note that this was originally mistakenly miscategorized and docucmented by the addon as only disabling backface culling when in reality it also enables blended transparency.
 
 ### Materials.Data
 
